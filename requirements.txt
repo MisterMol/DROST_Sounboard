@@ -1,0 +1,13 @@
+# Fase 2.4: apparaatstreams, hoge kwaliteit MP3/WAV-decoding en resampling.
+sounddevice>=0.5,<0.6
+numpy>=2.1,<3
+# soundfile levert op Windows zelf libsndfile met MP3-ondersteuning mee.
+soundfile>=0.13.1,<0.15
+# SoXR is een kleine hoogwaardige converter voor bijvoorbeeld 44.1 -> 48 kHz.
+soxr>=1.0,<2
+# MP4: eigen Windows-FFmpeg-binary voor het audiofragment. De video blijft in de browser.
+imageio-ffmpeg>=0.6,<0.7
+# Een GIF krijgt een stil eerste frame; de animatie speelt alleen tijdens audio.
+Pillow>=11,<13
+# Fase 5.9: Windows-systeemvak. Pillow staat al eerder hierboven.
+pystray>=0.19.5,<0.21

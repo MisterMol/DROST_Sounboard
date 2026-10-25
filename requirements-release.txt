@@ -1,0 +1,3 @@
+# Alleen nodig voor een openbare, verpakte Windows-EXE.
+# Niet nodig voor de bestaande 5.9.4-ontwikkelinstallatie.
+velopack==1.2.161

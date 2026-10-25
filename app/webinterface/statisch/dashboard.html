@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="drost-token" content="__DROST_TOKEN__">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0d12">
+  <title>DrostSoundboard</title>
+  <link rel="stylesheet" href="/stijl.css">
+  <script src="/video_synchronisatie.js" defer></script>
+  <script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <!-- Het opstartlogo heeft geen netwerkafhankelijkheden. Reduced motion schakelt de animatie uit. -->
+  <div id="opstartscherm" class="opstartscherm" aria-hidden="true">
+    <div class="opstart-inhoud">
+      <div class="beeldmerk beeldmerk-groot"><span class="merk-balken"><i></i><i></i><i></i><i></i><i></i></span></div>
+      <div class="opstart-naam">Drost<span>Soundboard</span></div>
+      <div class="opstart-bijschrift">Lokale audio, direct geregeld</div>
+      <div class="opstart-streep"></div>
+    </div>
+  </div>
+
+  <div class="pagina">
+    <header class="bovenbalk">
+      <a class="merk" href="/" aria-label="DrostSoundboard startpagina">
+        <span class="beeldmerk"><span class="merk-balken"><i></i><i></i><i></i><i></i><i></i></span></span>
+        <span class="merk-tekst">Drost<span>Soundboard</span></span>
+      </a>
+      <div class="bovenbalk-rechts">
+        <button id="knop-sneltoetsen" class="knop knop-ghost" type="button" aria-haspopup="dialog" aria-controls="dialoog-sneltoetsen">Sneltoetsen</button>
+        <button id="knop-weergave" class="knop knop-ghost knop-weergave" type="button" aria-haspopup="dialog" aria-controls="dialoog-weergave"><span aria-hidden="true">◐</span> Weergave</button>
+        <span id="kleine-status" class="status-chip" aria-live="polite"><i></i><span> Niet verbonden</span></span>
+      </div>
+    </header>
+
+    <div id="meldingen" class="meldingen" role="status" aria-live="polite"></div>
+    <main class="indeling">
+      <div class="hoofdkolom">
+        <section class="hoofdpaneel paneel" aria-labelledby="audio-titel">
+          <div class="paneelkop">
+            <div><p class="bovenlabel">INSTELLINGEN</p><h1 id="audio-titel">Audioverbinding</h1>
+              </div>
+            <span id="badge-status" class="status-label">Niet verbonden</span>
+          </div>
+          <div class="bediening-boven">
+            <label class="keuze-apparaat" for="microfoonkeuze"><span class="veldlabel">Microfoon</span>
+              <select id="microfoonkeuze"><option value="">Apparaten laden...</option></select></label>
+            <button id="knop-vernieuw" class="knop knop-ghost knop-klein" type="button">Vernieuwen</button>
+            <button id="knop-verbinden" class="knop knop-primair" type="button"><span class="connect-dot"></span> Verbinden</button>
+            <button id="knop-verbreken" class="knop knop-ghost" type="button" disabled>Verbreken</button>
+          </div>
+          <div class="instellingen-rij">
+            <div class="effectenbediening"><div><strong>Geluidseffecten</strong><span>Microfoon blijft actief als effecten uit staan</span></div>
+              <button id="knop-effecten" class="schakelaar" type="button" role="switch" aria-checked="false" aria-label="Geluidseffecten aan of uit" disabled><i></i></button></div>
+            <div class="effectenbediening"><div><strong>Meeluisteren</strong><span>Effecten op je headset, zonder microfoonecho</span></div>
+              <button id="knop-monitor" class="schakelaar" type="button" role="switch" aria-checked="true" aria-label="Meeluisteren aan of uit"><i></i></button></div>
+          </div>
+          <div class="uitvoer-selectie"><label for="monitor-uitvoer">Luisterapparaat</label>
+            <select id="monitor-uitvoer"><option value="">Automatisch, Razer indien beschikbaar</option></select>
+            <span class="apparaat-hint" id="monitor-melding">Standaarduitvoer</span></div>
+          <div class="meters">
+            <div class="meterkolom"><div class="metertitel"><span>MICROFOON · RMS</span><div class="meter-niveaus"><strong id="tekst-microfoon">Niet gemeten</strong><small id="tekst-microfoon-piek" title="Hoogste recente samplepiek, maximaal 1,2 seconde vastgehouden">Piek: —</small></div></div>
+              <div class="meter-track" aria-hidden="true"><div class="meter-kleur"></div><div id="meter-microfoon" class="meter-fill"></div><div class="meter-grid"></div><div id="meter-microfoon-piek" class="meter-piek"></div></div>
+              <div class="meter-schaal"><span>−60</span><span>−30</span><span>−12</span><span>0 dBFS</span></div></div>
+            <div class="meterkolom"><div class="metertitel"><span>NAAR VB-CABLE · RMS</span><div class="meter-niveaus"><strong id="tekst-uitvoer">Niet gemeten</strong><small id="tekst-uitvoer-piek" title="Hoogste recente samplepiek, maximaal 1,2 seconde vastgehouden">Piek: —</small></div></div>
+              <div class="meter-track" aria-hidden="true"><div class="meter-kleur"></div><div id="meter-uitvoer" class="meter-fill"></div><div class="meter-grid"></div><div id="meter-uitvoer-piek" class="meter-piek"></div></div>
+              <div class="meter-schaal"><span>−60</span><span>−30</span><span>−12</span><span>0 dBFS</span></div></div>
+          </div>
+          <div class="technische-status"><span id="extra-status">Kies je microfoon om te verbinden.</span><span id="buffer-status">Bufferproblemen: 0</span></div>
+        </section>
+
+        <section id="speler-paneel" class="nu-actief paneel speler-inactief" aria-labelledby="nu-actief-titel">
+          <div class="player-beeld" id="actieve-media" aria-live="off"><div class="player-placeholder"><span class="grote-golf" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><small>Geen fragment actief</small></div></div>
+          <div class="player-details">
+            <div><p class="bovenlabel" id="huidige-afspeelstand">SPELER</p><h2 id="nu-actief-titel">Nog niets actief</h2>
+              <p id="huidige-uitleg">Kies een fragment. Preview speelt alleen voor jou af.</p></div>
+            <div class="player-onder"><div class="tijdlijn"><div class="tijdlijn-balk"><span id="tijdlijn-vulling"></span></div>
+              <div class="tijdlijn-teksten"><span id="tijdlijn-tijd">0:00</span><span id="tijdlijn-totaal">0:00</span></div></div>
+              <div class="player-knoppen"><button id="knop-preview-stop" class="knop knop-ghost" type="button" disabled>Preview stoppen</button>
+                <button id="knop-stop" class="knop knop-stop" type="button" disabled>■ Stop <kbd>Esc</kbd></button></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="favorieten-sectie" aria-labelledby="favorieten-titel">
+          <div class="sectiekop"><div><p class="bovenlabel">SNEL AFSPELEN</p><h2 id="favorieten-titel">Mijn 15 favorieten</h2>
+            <p>Vijftien vaste posities. Versleep om de volgorde te wijzigen.</p></div>
+            <span id="aantal-favorieten" class="info-chip">0 / 15</span></div>
+          <div id="favorieten-raster" class="favorieten-raster" aria-label="Vijftien vaste favorietplekken"></div>
+        </section>
+
+        <!-- Vijf recent gebruikte groepen of de laatste afgespeelde geluiden.
+             De volledige geschiedenis blijft buiten het hoofdscherm. -->
+        <section class="recent-sectie paneel" aria-labelledby="recent-titel">
+          <div class="recent-kop">
+            <div><p class="bovenlabel">SNEL TERUGVINDEN</p><h2 id="recent-titel">Recent gebruikt</h2></div>
+            <button id="knop-geschiedenis" class="knop-tekst" type="button">Geschiedenis</button>
+          </div>
+          <div class="recent-tabs" role="tablist" aria-label="Wat is recent gebruikt?">
+            <button id="recent-tab-groepen" class="recent-tab gekozen" type="button" role="tab" aria-selected="true" aria-controls="recent-panel-groepen">Groepen</button>
+            <button id="recent-tab-geluiden" class="recent-tab" type="button" role="tab" aria-selected="false" aria-controls="recent-panel-geluiden">Geluiden</button>
+          </div>
+          <div id="recent-panel-groepen" role="tabpanel" aria-labelledby="recent-tab-groepen">
+            <div id="recent-groepen" class="recent-groepen"></div>
+          </div>
+          <div id="recent-panel-geluiden" role="tabpanel" aria-labelledby="recent-tab-geluiden" hidden>
+            <div id="recent-geluiden" class="recent-geluiden"></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="zijbalk paneel" aria-labelledby="bibliotheek-titel">
+        <div class="zijbalkkop"><div><p class="bovenlabel">COLLECTIE</p><h2 id="bibliotheek-titel">Bibliotheek</h2></div>
+          <span id="bibliotheek-aantal" class="info-chip">0</span></div>
+        <button id="knop-importeer" type="button" class="knop knop-primair importeerknop"><strong>＋</strong> Bestanden toevoegen</button>
+        <input id="bestandkiezer" type="file" accept=".mp3,.wav,.mp4,audio/mpeg,audio/wav,video/mp4" multiple hidden>
+        
+        <div class="bibliotheek-extra-acties"><button id="knop-bibliotheek-groot" type="button" class="knop knop-ghost">Bibliotheek beheren</button><button id="knop-importeer-archief" type="button" class="knop knop-ghost">ZIP importeren</button></div>
+        <input id="archiefkiezer" type="file" accept=".zip,application/zip" hidden>
+        <div class="groepen-header"><span>GROEPEN</span><button id="knop-nieuwe-groep" type="button" class="knop-tekst">＋ Nieuwe groep</button></div>
+        <div id="groepen-lijst" class="groepen-lijst" role="group" aria-label="Geluidsbibliotheek filteren"></div>
+        <label class="zoeklabel" for="zoeken">Zoeken</label>
+        <input id="zoeken" class="zoekveld" type="search" placeholder="Naam, tekst, beschrijving of tag" autocomplete="off">
+        <div id="bibliotheek-lijst" class="bibliotheek-lijst" aria-live="polite"></div>
+        
+      </aside>
+    </main>
+    
+  </div>
+
+  <dialog id="dialoog-sneltoetsen" class="dialoog sneltoetsen-dialoog" aria-labelledby="sneltoetsen-titel">
+    <div class="dialoog-kop"><div><p class="bovenlabel">GAMING</p><h2 id="sneltoetsen-titel">Globale sneltoetsen</h2></div>
+      <button class="kruis" type="button" data-sluit="dialoog-sneltoetsen" aria-label="Sluiten">×</button></div>
+    <p class="dialoog-subtekst">Sneltoetsen werken ook als de browser dicht is, zolang het systeemvakproces actief is. Ze staan standaard uit.</p>
+    <label class="thema-compact"><span>Globale sneltoetsen inschakelen <small>Windows registreert alleen de gekozen combinaties</small></span>
+      <input id="sneltoetsen-ingeschakeld" type="checkbox"></label>
+    <div class="sneltoetsen-lijst" id="sneltoetsen-lijst"></div>
+    <p class="dialoog-subtekst">Klik op een invoervak en druk je combinatie in. Gebruik Ctrl en Alt, eventueel met Shift. Backspace maakt een plek leeg. Niet iedere game laat globale sneltoetsen toe.</p>
+    <p id="sneltoetsen-fout" class="thema-fout" role="alert" hidden></p>
+    <div class="dialoog-acties"><button id="knop-sneltoetsen-standaard" type="button" class="knop knop-ghost">Beginwaarden</button>
+      <button type="button" class="knop knop-ghost" data-sluit="dialoog-sneltoetsen">Annuleren</button>
+      <button type="button" class="knop knop-primair" id="knop-sneltoetsen-opslaan">Opslaan</button></div>
+  </dialog>
+
+  <!-- Eigen thema's bewaren we in SQLite. Alles draait lokaal en zonder externe CSS. -->
+  <dialog id="dialoog-weergave" class="dialoog thema-dialoog" aria-labelledby="thema-titel">
+    <div class="dialoog-kop"><div><p class="bovenlabel">PERSONALISEREN</p><h2 id="thema-titel">Weergave</h2></div>
+      <button class="kruis" type="button" data-sluit="dialoog-weergave" aria-label="Sluiten">×</button></div>
+    <p class="dialoog-subtekst">Kies een basis en pas daarna de details aan.</p>
+    <label class="veldlabel">Basisthema</label>
+    <div id="thema-keuzes" class="thema-keuzes" role="group" aria-label="Basisthema's"></div>
+    <div class="thema-velden">
+      <label class="thema-kleurkeuze" for="thema-accent"><span>Accentkleur <small>Eigen kleur, of die van het thema</small></span>
+        <span class="thema-kleuracties"><input id="thema-accent" type="color" value="#78d6c5" aria-label="Eigen accentkleur">
+          <button id="knop-accent-standaard" type="button" class="knop knop-ghost knop-klein">Standaard</button></span></label>
+      <label class="invoerveld" for="thema-gradient">Gradient
+        <select id="thema-gradient"><option value="uit">Uit</option><option value="subtiel">Subtiel</option><option value="duidelijk">Duidelijk</option></select></label>
+      <label class="invoerveld" for="thema-richting">Richting
+        <select id="thema-richting"><option value="rechtsboven">Rechtsboven</option><option value="linksboven">Linksboven</option><option value="onder">Onder</option></select></label>
+      <label class="thema-compact" for="thema-compact"><span>Compacte weergave <small>Meer kaarten zichtbaar met minder witruimte</small></span>
+        <input id="thema-compact" type="checkbox"></label>
+    </div>
+    <details class="eigen-themas">
+      <summary>Mijn opgeslagen thema’s <span id="thema-profiel-aantal">0</span></summary>
+      <div class="eigen-themas-inhoud">
+        <div class="thema-profiel-bewaren"><input id="eigen-thema-naam" maxlength="40" type="text" placeholder="Naam voor eigen thema" aria-label="Naam van je eigen thema">
+          <button id="knop-eigen-thema-opslaan" type="button" class="knop knop-ghost">Profiel bewaren</button></div>
+        <div id="eigen-thema-lijst" class="eigen-thema-lijst"></div>
+      </div>
+    </details>
+    <div class="thema-voorbeeld" id="thema-voorbeeld" aria-label="Live themaweergave">
+      <div class="thema-voorbeeld-kop"><span>Voorbeeld</span><span class="thema-voorbeeld-status">Verbonden</span></div>
+      <div class="thema-voorbeeld-kaart"><span>South Park</span><small>0:29</small><div class="thema-voorbeeld-balk"><i></i></div></div>
+    </div>
+    <p id="thema-fout" class="thema-fout" role="alert" hidden></p>
+    <div class="dialoog-acties"><button id="knop-thema-herstellen" class="knop knop-ghost" type="button">Beginwaarden</button>
+      <button type="button" class="knop knop-ghost" data-sluit="dialoog-weergave">Annuleren</button>
+      <button id="knop-thema-opslaan" class="knop knop-primair" type="button">Opslaan</button></div>
+  </dialog>
+
+  <dialog id="dialoog-geschiedenis" class="dialoog geschiedenis-dialoog" aria-labelledby="geschiedenis-titel">
+    <div class="dialoog-kop"><div><p class="bovenlabel">LOKALE GESCHIEDENIS</p><h2 id="geschiedenis-titel">Afspeelgeschiedenis</h2></div>
+      <button class="kruis" type="button" data-sluit="dialoog-geschiedenis" aria-label="Sluiten">×</button></div>
+    <p class="dialoog-subtekst">Preview betekent lokaal luisteren. Naar call betekent verzonden naar VB-CABLE, niet bevestigd door de andere partij.</p>
+    <div id="geschiedenis-volledig" class="geschiedenis-lijst" aria-live="polite"></div>
+    <div class="dialoog-acties"><button id="knop-geschiedenis-wissen" type="button" class="knop knop-gevaar">Geschiedenis wissen</button>
+      <button type="button" class="knop knop-ghost" data-sluit="dialoog-geschiedenis">Sluiten</button></div>
+  </dialog>
+
+  <!-- Preview blijft in de browser en wordt nooit als microfoon naar VB-CABLE gestuurd. -->
+  <audio id="preview-audio" preload="none" hidden></audio><video id="preview-video" preload="metadata" playsinline hidden></video>
+
+  <dialog id="dialoog-toewijzen" class="dialoog kleine-dialoog"><div class="dialoog-kop"><div><p class="bovenlabel">FAVORIETEN</p><h2 id="toewijzen-titel">Plek invullen</h2></div><button class="kruis" type="button" data-sluit="dialoog-toewijzen" aria-label="Sluiten">×</button></div>
+    <p class="dialoog-subtekst">Selecteer een geluid uit je bibliotheek.</p><div id="toewijzen-keuzes" class="toewijzen-keuzes"></div>
+    <div class="dialoog-acties"><button id="knop-leegmaken" class="knop knop-ghost" type="button">Plek leegmaken</button><button class="knop knop-ghost" type="button" data-sluit="dialoog-toewijzen">Annuleren</button></div></dialog>
+
+  <dialog id="dialoog-groep" class="dialoog kleine-dialoog"><div class="dialoog-kop"><div><p class="bovenlabel">BIBLIOTHEEK</p><h2>Nieuwe groep</h2></div><button class="kruis" type="button" data-sluit="dialoog-groep" aria-label="Sluiten">×</button></div>
+    <form id="formulier-groep"><label class="invoerveld" for="nieuwe-groepsnaam">Naam<input id="nieuwe-groepsnaam" type="text" minlength="1" maxlength="60" placeholder="Bijvoorbeeld South Park" required></label>
+      <div class="dialoog-acties"><button type="button" class="knop knop-ghost" data-sluit="dialoog-groep">Annuleren</button><button type="submit" class="knop knop-primair">Groep maken</button></div></form></dialog>
+
+  <dialog id="dialoog-bewerken" class="dialoog editor-dialoog"><div class="dialoog-kop"><div><p class="bovenlabel">FRAGMENTEDITOR</p><h2>Geluid bewerken</h2></div><button class="kruis" type="button" data-sluit="dialoog-bewerken" aria-label="Sluiten">×</button></div>
+    <form id="formulier-bewerken">
+      <div class="editor-basis">
+        <div class="editor-media" id="editor-media"><div class="editor-media-placeholder">Audiofragment</div></div>
+        <div class="editor-eigenschappen">
+          <label class="invoerveld">Naam<input id="bewerken-naam" type="text" maxlength="100" required></label>
+          <label class="invoerveld">Zoekwoorden<input id="bewerken-zoekwoorden" type="text" maxlength="500" placeholder="Bijvoorbeeld meme, quote, cartman"></label>
+          <label class="invoerveld">Weergave tijdens afspelen
+            <select id="bewerken-beeld"><option value="automatisch">Automatisch</option><option value="video">Originele video</option><option value="afbeelding">Afbeelding of GIF</option></select></label>
+          <button type="button" id="knop-afbeelding" class="knop knop-ghost knop-afbeelding">Afbeelding of GIF toevoegen</button>
+          <input id="afbeeldingkiezer" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/webp,image/gif" hidden>
+        </div>
+      </div>
+      <div class="editor-tijdlijn">
+        <div class="editor-titelrij"><div><h3>Fragmentselectie</h3><p>Sleep de markeringen of voer de tijden in.</p></div>
+          <span class="lengte-tag" id="bronduur-label">Bron: onbekend</span></div>
+        <div class="editor-zoom-rij">
+          <div class="editor-zoom-knoppen"><button id="knop-zoom-uit" type="button" class="knop knop-ghost" title="Zoom uit">−</button><span id="editor-zoom-tekst">Volledige bron</span><button id="knop-zoom-in" type="button" class="knop knop-ghost" title="Zoom in">＋</button><button id="knop-zoom-volledig" type="button" class="knop knop-ghost">Volledig</button></div>
+          <span class="editor-zoom-hint">Houd een kniprand vast om precies in te zoomen. Scroll om het beeld te verschuiven.</span>
+        </div>
+        <!-- De golfvorm wordt niet ieder frame opnieuw getekend. Alleen de losse
+             cursor verplaatst, zodat zoeken en afspelen licht blijven. -->
+        <div id="editor-golfvorm-gebied" class="editor-golfvorm-gebied">
+          <canvas id="golfvorm-canvas" width="760" height="152" aria-label="Gedetailleerde golfvorm met pieken en gemiddeld geluidsniveau"></canvas>
+          <div id="editor-selectie-venster" class="editor-selectie-venster" aria-hidden="true"></div>
+          <div id="editor-grens-begin" class="editor-grens editor-grens-begin" aria-hidden="true" title="Beginpunt vasthouden voor nauwkeurige zoom"></div>
+          <div id="editor-grens-einde" class="editor-grens editor-grens-einde" aria-hidden="true" title="Eindpunt vasthouden voor nauwkeurige zoom"></div>
+          <div id="editor-afspeelvlak" class="editor-afspeelvlak" role="slider" tabindex="0"
+               aria-label="Afspeelpositie binnen de selectie" aria-valuemin="0" aria-valuemax="120"
+               aria-valuenow="0" aria-valuetext="0:00" title="Klik of sleep om de afspeelpositie te verplaatsen">
+            <div id="editor-afspeelkop" class="editor-afspeelkop"><span class="editor-cursorkop"></span></div>
+          </div>
+        </div>
+        <div class="editor-zoom-tijden"><span id="editor-venster-links">0:00.000</span><span id="editor-venster-rechts">0:00.000</span></div>
+        <div id="trim-track" class="trim-track"><span id="trim-zone" class="trim-zone"></span>
+          <input id="trim-begin" type="range" min="0" max="120" value="0" step="0.001" aria-label="Begin van selectie">
+          <input id="trim-eind" type="range" min="0" max="120" value="120" step="0.001" aria-label="Einde van selectie"></div>
+        <div class="editor-tijdwaarden"><span id="trim-linkerlabel">0:00</span><strong id="selectie-duur">0:00 geselecteerd</strong><span id="trim-rechterlabel">0:00</span></div>
+        <div class="editor-tijdvelden"><label class="invoerveld" for="bewerken-start">Begin (seconden)<input id="bewerken-start" type="number" min="0" step="0.001" required></label>
+          <label class="invoerveld" for="bewerken-duur">Duur (seconden)<input id="bewerken-duur" type="number" min="0.001" max="120" step="0.001" required></label>
+          <div class="editor-precisie">Tijden in seconden, tot op 0,001. Maximaal 2:00.</div></div>
+        <div class="editor-speler" aria-label="Preview en afspeelpositie">
+          <div class="editor-speler-koppen">
+            <div class="editor-speler-knoppen">
+              <button id="knop-editor-preview" type="button" class="knop knop-primair">▶ Afspelen</button>
+              <button id="knop-editor-stop" type="button" class="knop knop-ghost" disabled>■ Stop</button>
+              <span id="editor-speelstatus" class="editor-speelstatus" aria-live="polite">Gereed</span>
+            </div>
+            <span class="editor-sneltoets">Spatie: afspelen / pauzeren</span>
+          </div>
+          <div class="editor-voortgang" aria-hidden="true"><span id="editor-voortgang-vulling"></span></div>
+          <div class="editor-voortgang-tekst"><span id="editor-positie-tijd">0:00.0</span><span id="editor-selectie-eindtijd">0:00.0</span></div>
+        </div>
+        <p class="editor-hint" id="editor-hint">Het origineel blijft intact. Maximaal twee minuten.</p>
+      </div>
+      <div class="editor-onder">
+        <label class="invoerveld volume-veld">Effectvolume <span id="volume-uitleg">100%</span><input id="bewerken-volume" type="range" min="0" max="200" value="100" step="1" aria-label="Effectvolume van 0 tot 200 procent"></label>
+        <div class="editor-teksten">
+          <label class="invoerveld" for="bewerken-beschrijving">Beschrijving<textarea id="bewerken-beschrijving" maxlength="2000" rows="2" placeholder="Korte uitleg over het geluid"></textarea></label>
+          <label class="invoerveld" for="bewerken-gesproken-tekst">Wat wordt er gezegd?<textarea id="bewerken-gesproken-tekst" maxlength="8000" rows="3" placeholder="Tekst of transcript van het fragment"></textarea></label>
+          <small>Deze teksten zijn doorzoekbaar, maar worden niet automatisch herkend of uitgezonden.</small>
+        </div>
+        <div class="groepselectie"><div class="editor-groepskop"><strong>Groepen</strong><span>Een geluid kan in meerdere groepen staan</span></div><div id="groepen-in-editor" class="editor-groepen"></div></div>
+      </div>
+      <div class="dialoog-acties"><button id="knop-verwijder-geluid" type="button" class="knop knop-gevaar">Uit bibliotheek verwijderen</button>
+        <button id="knop-exporteer-editor" type="button" class="knop knop-ghost">Download als…</button>
+        <button type="submit" class="knop knop-primair">Wijzigingen opslaan</button></div>
+    </form></dialog>
+
+  <!-- Eén menu voor alle bibliotheekrijen voorkomt tientallen verborgen menu's
+       en wordt buiten de scrollbare zijbalk geplaatst, zodat het niet afknipt. -->
+  <div id="geluid-actiemenu" class="geluid-actiemenu" role="menu" aria-label="Acties voor geluid" hidden></div>
+
+  <!-- Export staat buiten de bewerkformulieren: een download bewaart nooit
+       per ongeluk wijzigingen aan naam, groepen of geselecteerde tijden. -->
+  <dialog id="dialoog-losse-export" class="dialoog kleine-dialoog export-dialoog">
+    <div class="dialoog-kop"><div><p class="bovenlabel">LOS BESTAND</p><h2 id="export-titel">Geluid exporteren</h2>
+      <p id="export-uitleg" class="dialoog-subtekst">Kies welk onderdeel je wilt downloaden.</p></div>
+      <button type="button" class="kruis" data-sluit="dialoog-losse-export" aria-label="Sluiten">×</button></div>
+    <div class="export-keuzes">
+      <button id="knop-export-mp3" class="export-keuze" type="button" data-exportformaat="mp3"><span class="export-soort">MP3</span><span class="export-details">Alleen audio · gekozen fragment</span></button>
+      <button id="knop-export-mp4" class="export-keuze" type="button" data-exportformaat="mp4"><span class="export-soort">MP4</span><span class="export-details">Beeld + geluid · gekozen fragment</span></button>
+      <button id="knop-export-afbeelding" class="export-keuze" type="button" data-exportformaat="afbeelding" hidden><span class="export-soort">Afbeelding</span><span class="export-details">De gekoppelde foto, zonder geluid</span></button>
+      <button id="knop-export-gif" class="export-keuze" type="button" data-exportformaat="gif"><span class="export-soort">GIF</span><span class="export-details">Gekoppelde animatie of video als GIF</span></button>
+    </div>
+    <p id="export-voortgang" class="export-voortgang" role="status" aria-live="polite"></p>
+    <div class="dialoog-acties"><button type="button" class="knop knop-ghost" data-sluit="dialoog-losse-export">Sluiten</button></div>
+  </dialog>
+
+  <dialog id="dialoog-bibliotheek" class="dialoog bibliotheek-dialoog">
+    <div class="dialoog-kop"><div><p class="bovenlabel">COLLECTIE</p><h2>Bibliotheek beheren</h2></div>
+      <button type="button" class="kruis" data-sluit="dialoog-bibliotheek" aria-label="Sluiten">×</button></div>
+    <div class="beheer-zoekrij">
+      <input id="beheer-zoeken" type="search" placeholder="Zoek op naam, omschrijving, gesproken tekst of groep" aria-label="Geluiden zoeken">
+      <select id="beheer-groep" aria-label="Filter op groep"><option value="alle">Alle groepen</option></select>
+      <select id="beheer-formaat" aria-label="Filter op bestandstype"><option value="alle">Alle formaten</option><option value="mp3">MP3</option><option value="wav">WAV</option><option value="mp4">MP4</option></select>
+      <select id="beheer-sortering" aria-label="Sorteer bibliotheek"><option value="naam">Naam A tot Z</option><option value="naam-terug">Naam Z tot A</option><option value="duur-kort">Kortste eerst</option><option value="duur-lang">Langste eerst</option><option value="formaat">Bestandstype</option></select>
+    </div>
+    <div id="beheer-groepkaarten" class="beheer-groepkaarten" aria-label="Snel op groep filteren"></div>
+    <div class="beheer-knoppen">
+      <button id="knop-beheer-bestanden" class="knop knop-primair" type="button">+ Bestanden</button>
+      <button id="knop-beheer-nieuwe-groep" class="knop knop-ghost" type="button">+ Groep</button>
+      <button id="knop-beheer-selecteer-alles" class="knop knop-ghost" type="button">Selecteer zichtbare</button>
+      <button id="knop-beheer-deselecteer" class="knop knop-ghost" type="button">Deselecteer</button>
+      <button id="knop-beheer-exporteer" class="knop knop-ghost" type="button">Exporteer selectie als ZIP</button>
+      <button id="knop-beheer-volume" class="knop knop-ghost" type="button">Selectie op 100%</button>
+      <button id="knop-beheer-importeer" class="knop knop-ghost" type="button">Importeer ZIP</button>
+      <select id="beheer-groep-toevoegen" aria-label="Groep voor geselecteerde geluiden"><option value="">Groep kiezen</option></select>
+      <button id="knop-beheer-koppel-groep" type="button" class="knop knop-ghost">Zet in groep</button>
+      <button id="knop-beheer-verwijderen" type="button" class="knop knop-gevaar">Verwijder selectie</button>
+      <span id="beheer-selectie-teller" class="beheer-teller">0 geselecteerd</span></div>
+    <div class="beheer-tabel" id="beheer-lijst" role="group" aria-label="Geluiden beheren"></div>
+    <div class="beheer-voet"><span id="beheer-aantal-zichtbaar">0 geluiden</span><button id="knop-beheer-meer" type="button" class="knop knop-ghost" hidden>Meer tonen</button></div>
+  </dialog>
+</body>
+</html>

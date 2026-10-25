@@ -1,0 +1,2 @@
+# Hulpmiddel voor ontwikkelaar / GitHub Actions, niet voor gebruikers.
+pyinstaller==6.22.3
