@@ -2,7 +2,7 @@
 
 /*
   Dit bestand regelt alleen de webinterface. Python doet de echte audiomix.
-  Een preview blijft in de browser; afspelen voor het gesprek gaat via Python.
+  Een preview blijft in de browser; uitsturen via de virtuele microfoon gaat via Python.
   We tonen video en GIF alleen zolang de bijbehorende audio actief is.
 */
 const beveiligingscode = document.querySelector('meta[name="drost-token"]').content;
@@ -10,9 +10,10 @@ const element = (id) => document.getElementById(id);
 const toestand = {
   geluiden: [], favorieten: Array(15).fill(null), status: null,
   gekozenGeluid: null, gekozenPlek: null, bezetteStatusaanvraag: false,
-  bezigMetImport: false, laatsteAudiofout: null,
+  bezigMetImport: false, laatsteAudiofout: null, vbCable: null,
   preview: null, live: null, verwachtGeluid: null,
-  laatstGekozenMonitor: null, groepen: [], actieveGroep: "alle",
+  laatstGekozenMonitor: null, microfoonHandmatigGekozen: false,
+  groepen: [], actieveGroep: "alle",
   editorVoorbeeld: null, editorGolfvormWachttijd: null, golfvormVolgnummer: 0,
   editorAfspeelpositie: 0, editorIsAanHetSlepen: false,
   editorAfspeelAnimatie: null, editorGolfvormData: null,
@@ -443,7 +444,7 @@ function toonGeluidActiemenu(geluidId, knop) {
     if (element("dialoog-bibliotheek").open) openEditorVanuitBeheer(geluidId);
     else openBewerkvenster(geluidId);
   }, "menu-bewerken");
-  voegActieToeAanMenu(menu, "Afspelen in gesprek", () => beginGeluidAfspelen(geluidId));
+  voegActieToeAanMenu(menu, "Uitzenden via microfoon", () => beginGeluidAfspelen(geluidId));
   voegActieToeAanMenu(menu, "Preview", () => schakelPreviewOfStopVanGeluid(geluidId));
   const formaten = Array.isArray(geluid.exportformaten) ? geluid.exportformaten : [];
   if (formaten.length) {
@@ -599,7 +600,7 @@ function beginPreview(geluidId) {
       throw new Error("Het bronbestand ontbreekt. Importeer het geluid via de webpagina.");
     }
     stopPreview("vervangen");
-    // Preview wordt toegestaan terwijl DrostSoundboard niet met Discord verbonden is.
+    // Lokaal luisteren werkt zonder verbinding met de virtuele microfoon.
     const start = Number(geluid.beginpositie) || 0;
     const duur = Number(geluid.fragmentduur ?? geluid.maximale_duur) || 0.1;
     const speler = geluid.is_video ? document.createElement("video") : new Audio();
@@ -618,7 +619,7 @@ function beginPreview(geluidId) {
     toonMediascherm(geluid, true, start, speler);
     element("huidige-afspeelstand").textContent = "PREVIEW · ALLEEN JIJ";
     element("nu-actief-titel").textContent = geluid.naam;
-    element("huidige-uitleg").textContent = "Dit geluid gaat niet naar Discord of VB-CABLE.";
+    element("huidige-uitleg").textContent = "Je hoort deze preview alleen lokaal. Het geluid wordt niet uitgezonden.";
     element("knop-preview-stop").disabled = false;
     stelSpelerActiefIn(true);
     werkSpelerTijdBij(0, duur);
@@ -688,10 +689,10 @@ function werkLiveGeluidBij(status) {
         geluid, false, Number(status.beginpositie_seconden) || 0
       );
       element("nu-actief-titel").textContent = geluid.naam;
-      element("huidige-afspeelstand").textContent = "LIVE · NAAR VB-CABLE";
+      element("huidige-afspeelstand").textContent = "UITZENDEN · VIRTUELE MICROFOON";
       element("huidige-uitleg").textContent = status.meeluisteren_aan
-        ? "De ander hoort het via VB-CABLE. Het effect hoor je ook via je headset."
-        : "Dit geluid wordt naar VB-CABLE gestuurd. Meeluisteren staat uit.";
+        ? "Het geluid gaat naar de virtuele microfoon. Je hoort het ook via je luisterapparaat."
+        : "Het geluid gaat naar de virtuele microfoon. Meeluisteren staat uit.";
       element("knop-preview-stop").disabled = true;
       stelSpelerActiefIn(true);
       werkActieveKaartenBij();
@@ -715,7 +716,7 @@ function werkLiveGeluidBij(status) {
 }
 
 async function beginGeluidAfspelen(geluidId) {
-  await voerGebruikersactieUit("Geluid naar gesprek sturen", async () => {
+  await voerGebruikersactieUit("Geluid uitzenden", async () => {
     const status = toestand.status;
     if (status?.toestand !== "verbonden") throw new Error("Klik eerst op Verbinden.");
     if (!status.effecten_aan) throw new Error("Zet Soundboard eerst aan.");
@@ -726,27 +727,74 @@ async function beginGeluidAfspelen(geluidId) {
     toestand.verwachtGeluid = { id: geluidId, gestart: Date.now() };
     stelSpelerActiefIn(true);
     element("nu-actief-titel").textContent = geluid.naam;
-    element("huidige-afspeelstand").textContent = "LIVE · WORDT VOORBEREID";
-    element("huidige-uitleg").textContent = "Python decodeert het fragment en start daarna de audiomixer.";
+    element("huidige-afspeelstand").textContent = "UITZENDEN · WORDT VOORBEREID";
+    element("huidige-uitleg").textContent = "Het fragment wordt klaargemaakt voor afspelen via de virtuele microfoon.";
     toonVoorbereidingZonderVideo(geluid);
     toonMelding(`${geluid.naam} wordt naar VB-CABLE gestuurd.`);
   });
+}
+
+function toonVBCableStatus(status) {
+  const vak = element('vb-cable-waarschuwing');
+  toestand.vbCable = status;
+  if (status?.status === 'gereed' && status.bruikbaar === true) {
+    vak.hidden = true;
+    return;
+  }
+  // Onduidelijke resultaten worden niet als ontbrekende installatie getoond.
+  const teksten = {
+    ontbreekt: 'VB-CABLE niet beschikbaar',
+    onvolledig: 'VB-CABLE is niet volledig beschikbaar',
+    meerdere: 'Meerdere VB-CABLE-apparaten gevonden',
+    controle_mislukt: 'VB-CABLE kon niet worden gecontroleerd'
+  };
+  element('vb-cable-titel').textContent = teksten[status?.status] || 'VB-CABLE controleren';
+  element('vb-cable-omschrijving').textContent =
+    status?.melding || 'Controleer de audioapparaten via Windows.';
+  // Bij een mislukte detectie weten we niet of de driver ontbreekt.
+  element('vb-cable-hulp').hidden = status?.status === 'controle_mislukt';
+  vak.hidden = false;
+}
+
+async function controleerVBCable({ toonBevestiging = false } = {}) {
+  const knop = element('vb-cable-opnieuw');
+  knop.disabled = true;
+  try {
+    const status = await vraagAanPython('GET', '/api/vereisten/vb-cable');
+    toonVBCableStatus(status);
+    if (toonBevestiging && status.status === 'gereed') {
+      toonMelding('VB-CABLE is beschikbaar. Je kunt je microfoon verbinden.');
+    }
+  } catch (fout) {
+    // De audiolibrary of lokale server kan onbereikbaar zijn. Dat is geen
+    // bewijs dat de VB-CABLE-driver ontbreekt. De rest van de UI blijft open.
+    toonVBCableStatus({ status: 'controle_mislukt', bruikbaar: false,
+      melding: 'De audioapparaten konden niet gecontroleerd worden. Probeer het opnieuw.' });
+    registreerBrowserfout(`VB-CABLE controleren: ${fout.message}`, fout.stack || '');
+  } finally { knop.disabled = false; }
 }
 
 async function laadApparaten() {
   const antwoord = await vraagAanPython("GET", "/api/apparaten");
   const menu = element("microfoonkeuze");
   const eerder = menu.value;
-  menu.replaceChildren();
+  const standaard = antwoord.standaard_microfoonnummer;
+  menu.replaceChildren(new Option("Kies een microfoon", ""));
   for (const apparaat of antwoord.microfoons || []) {
-    const keuze = new Option(apparaat.naam, String(apparaat.nummer));
-    menu.appendChild(keuze);
+    const isStandaard = apparaat.nummer === standaard;
+    const naam = isStandaard ? `${apparaat.naam} (Windows-standaard)` : apparaat.naam;
+    menu.appendChild(new Option(naam, String(apparaat.nummer)));
   }
-  menu.value = [...menu.options].some((keuze) => keuze.value === eerder) ? eerder :
-    ([...menu.options].find((x) => x.text.toLowerCase().includes("razer"))?.value || menu.options[0]?.value || "");
+  const keuzes = [...menu.options].map((keuze) => keuze.value);
+  if (toestand.microfoonHandmatigGekozen && !keuzes.includes(eerder)) {
+    toestand.microfoonHandmatigGekozen = false;
+  }
+  const automatisch = Number.isInteger(standaard) && keuzes.includes(String(standaard))
+    ? String(standaard) : "";
+  menu.value = toestand.microfoonHandmatigGekozen ? eerder : automatisch;
   const luistermenu = element("monitor-uitvoer");
   const gekozen = toestand.laatstGekozenMonitor ?? luistermenu.value;
-  luistermenu.replaceChildren(new Option("Automatisch (Razer als beschikbaar)", ""));
+  luistermenu.replaceChildren(new Option("Automatisch (Windows-standaard)", ""));
   for (const apparaat of antwoord.uitvoerapparaten || []) {
     luistermenu.appendChild(new Option(apparaat.naam, String(apparaat.nummer)));
   }
@@ -969,9 +1017,7 @@ async function vernieuwStatus() {
       verbonden ? (status.effecten_aan ? "Verbonden · Effecten aan" : "Verbonden · Alleen microfoon") : "Niet verbonden";
     element("kleine-status").querySelector("span").textContent = " " + omschrijving;
     element("kleine-status").classList.toggle("actief", verbonden);
-    element("badge-status").textContent = omschrijving;
-    element("badge-status").classList.toggle("actief", verbonden);
-    element("knop-verbinden").disabled = verbonden || bezig || !element("microfoonkeuze").value;
+     element("knop-verbinden").disabled = verbonden || bezig || !element("microfoonkeuze").value;
     element("knop-verbreken").disabled = !verbonden && !bezig;
     element("microfoonkeuze").disabled = verbonden || bezig;
     element("knop-vernieuw").disabled = verbonden || bezig;
@@ -1006,7 +1052,7 @@ async function vernieuwStatus() {
     if (!streamingIsBeschikbaar || performance.now() - laatsteOntvangstVanNiveaus > 250) {
       toonNieuweMeetwaarden({}, false);
     }
-    element("extra-status").textContent = "Python is onbereikbaar. Laat het terminalvenster open.";
+    element("extra-status").textContent = "De achtergrondapp is niet bereikbaar. Start DrostSoundboard opnieuw.";
   } finally { toestand.bezetteStatusaanvraag = false; }
 }
 
@@ -2102,8 +2148,24 @@ function koppelAlleKnoppen() {
       "Los bestand exporteren", () => downloadLosBestand(knop.dataset.exportformaat)
     ));
   });
-  element("knop-vernieuw").addEventListener("click", () => voerGebruikersactieUit("Apparaten vernieuwen", laadApparaten));
+  element("microfoonkeuze").addEventListener("change", () => {
+    toestand.microfoonHandmatigGekozen = true;
+    element("knop-verbinden").disabled = !element("microfoonkeuze").value;
+  });
+  element("knop-vernieuw").addEventListener("click", () => voerGebruikersactieUit("Apparaten vernieuwen", async () => {
+    await laadApparaten();
+    await controleerVBCable();
+  }));
+  element("vb-cable-opnieuw").addEventListener("click", () => voerGebruikersactieUit("VB-CABLE controleren", async () => {
+    await controleerVBCable({ toonBevestiging: true });
+    await laadApparaten();
+  }));
   element("knop-verbinden").addEventListener("click", () => voerGebruikersactieUit("Verbinden", async () => {
+    if (toestand.vbCable && ['ontbreekt', 'onvolledig', 'meerdere'].includes(toestand.vbCable.status)) {
+      element('vb-cable-waarschuwing').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element('vb-cable-opnieuw').focus({ preventScroll: true });
+      return;
+    }
     await vraagAanPython("POST", "/api/verbinden", { microfoonnummer: Number(element("microfoonkeuze").value) });
     toonMelding("De microfoon wordt verbonden."); await vernieuwStatus();
   }));
@@ -2273,6 +2335,8 @@ async function beginDashboard() {
     voerGebruikersactieUit("Weergave laden", laadPersoonlijkeWeergave),
     voerGebruikersactieUit("Recent gebruikt laden", () => laadRecentGebruikt())
   ]);
+  // Na de gewone apparaatlijst; vermijd gelijktijdige PortAudio-query's.
+  await controleerVBCable();
   await vernieuwStatus();
   startDeDirecteNiveaustroom();
   setInterval(vernieuwStatus, 200);
@@ -2522,7 +2586,7 @@ function maakRecenteGeluidenZichtbaar(geluiden, containerId) {
     const omschrijving = maakElement("div", "recent-geluidtekst");
     omschrijving.append(maakElement("strong", "", geluid.naam), maakElement("small", "", formatteerRecenteTijd(geluid.tijdstip_utc)));
     const modus = maakElement("span", "recent-modus " + (geluid.wijze === "gesprek" ? "naar-gesprek" : "lokaal"),
-      geluid.wijze === "gesprek" ? "Naar call" : "Preview");
+      geluid.wijze === "gesprek" ? "Uitgezonden" : "Preview");
     rij.append(icoon, omschrijving, modus);
     if (geluid.bestaat_nog && vindGeluid(geluid.id)) {
       const preview = maakElement("button", "recent-play", "Preview");

@@ -2,7 +2,7 @@
 
 Open-source soundboard voor Windows 11. Speel MP3, WAV en MP4 af via een bestaande virtuele microfoon en houd je headset beschikbaar om zelf mee te luisteren. Het lokale webdashboard is alleen de bediening; het Windows-systeemvakproces blijft actief als de browser dichtgaat.
 
-**Status: 5.9.4 bèta, voor ontwikkelaars.** Een zelfstandige installer zonder Python volgt in 6.0. De bestaande Windows-audiomixer is in 5.9.4 niet gewijzigd.
+**Status: 6.0.0-beta.3, nog niet publiek uitgebracht.** De zelfstandige Windows-installer is in ontwikkeling; installatie en automatische updates moeten op een tweede computer worden getest.
 
 ## Wat kan het?
 
@@ -19,10 +19,10 @@ Open-source soundboard voor Windows 11. Speel MP3, WAV en MP4 af via een bestaan
 
 | Waar | Apparaat |
 | --- | --- |
-| Microfooningang van DrostSoundboard | Je eigen Razer of andere microfoon |
+| Microfooningang van DrostSoundboard | Je Windows-standaardmicrofoon of een zelfgekozen microfoon |
 | Uitvoer van de audiomixer | `CABLE Input` |
-| Microfoon in Discord of een andere belapp | `CABLE Output` |
-| Geluid naar jouw oren | Je eigen headset |
+| Virtuele microfoon in andere programma's | `CABLE Output` |
+| Lokaal meeluisteren | Je Windows-standaarduitvoer of een zelfgekozen luisterapparaat |
 
 Let op: als DrostSoundboard helemaal stopt, kan je virtuele microfoon stilvallen. Zet dan eventueel de echte microfoon in je belapp terug.
 
@@ -59,3 +59,7 @@ Lees [`ARCHITECTUUR.md`](ARCHITECTUUR.md) voor een modulekaart, [`CONTRIBUTING.m
 De eigen code valt onder [`LICENSE`](LICENSE) (MIT). Externe bibliotheken behouden hun eigen licenties; zie [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Controleer vooral FFmpeg en andere gebundelde onderdelen vóór publicatie van een Windows-installer.
 
 Repository: https://github.com/MisterMol/DROST_Sounboard
+
+## VB-CABLE controleren bij de eerste start
+
+DrostSoundboard controleert in het dashboard of beide kanten van de gewone VB-CABLE via Windows WASAPI zichtbaar zijn. Als de kabel ontbreekt of niet volledig beschikbaar is, verschijnt een rustige melding met een link naar de [officiële VB-Audio-download](https://vb-audio.com/Cable/) en **Opnieuw controleren**. De geluidsbibliotheek en lokale previews werken zonder VB-CABLE; een virtuele microfoon voor games of gesprekken niet. VB-CABLE blijft een aparte driverinstallatie en wordt nooit stilzwijgend geïnstalleerd. Zie `FASE6_0_BETA2_VB_CABLE_CHECK.md`.

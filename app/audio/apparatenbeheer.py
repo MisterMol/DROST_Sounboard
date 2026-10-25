@@ -1,7 +1,7 @@
 """Zoek de audioapparaten van Windows zonder al geluid af te spelen.
 
 Fase 0 is bewust alleen een inventarisatie. Daardoor kunnen we eerst zien hoe
-Windows de Razer-microfoon en VB-CABLE noemt voordat we ze openen.
+Windows de fysieke microfoons en VB-CABLE noemt voordat we ze openen.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class ResultaatVanApparaatcontrole:
     apparaten: list[GevondenAudioapparaat]
     cable_input_aanwezig: bool
     cable_output_aanwezig: bool
-    razer_microfoon_mogelijk_aanwezig: bool
+    fysieke_microfoon_mogelijk_aanwezig: bool
 
 
 def _lees_kanaalaantal_of_nul(
@@ -132,8 +132,11 @@ def maak_veilig_overzicht_van_audioapparaten(
         and apparaat.aantal_invoerkanalen > 0
         for apparaat in overzicht
     )
-    razer_microfoon_mogelijk_aanwezig = any(
-        "razer" in apparaat.naam.casefold() and apparaat.aantal_invoerkanalen > 0
+    fysieke_microfoon_mogelijk_aanwezig = any(
+        apparaat.api_naam.casefold() == 'windows wasapi'
+        and apparaat.aantal_invoerkanalen > 0
+        and 'cable' not in apparaat.naam.casefold()
+        and 'vb-audio' not in apparaat.naam.casefold()
         for apparaat in overzicht
     )
 
@@ -141,7 +144,7 @@ def maak_veilig_overzicht_van_audioapparaten(
         apparaten=overzicht,
         cable_input_aanwezig=cable_input_aanwezig,
         cable_output_aanwezig=cable_output_aanwezig,
-        razer_microfoon_mogelijk_aanwezig=razer_microfoon_mogelijk_aanwezig,
+        fysieke_microfoon_mogelijk_aanwezig=fysieke_microfoon_mogelijk_aanwezig,
     )
 
 

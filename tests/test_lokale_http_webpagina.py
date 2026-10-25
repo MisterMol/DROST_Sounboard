@@ -74,6 +74,18 @@ class TestLokaleWebserver(unittest.TestCase):
         self.assertEqual(self.verzoek('/dashboard.js')[0], 200)
         self.assertEqual(self.verzoek('/stijl.css')[0], 200)
 
+    def test_api_apparaten_geeft_windows_standaard_mee_aan_dashboard(self):
+        microfoons = [{'nummer': 2, 'naam': 'Microfoon (Logitech)'},
+                      {'nummer': 7, 'naam': 'Microfoon (Realtek)'}]
+        with patch.object(self.bediening, 'geef_apparaten_voor_de_webpagina', return_value=microfoons), \
+             patch.object(self.bediening, 'geef_standaard_microfoonnummer_voor_de_webpagina', return_value=7) as standaard, \
+             patch.object(self.bediening, 'geef_uitvoerapparaten_voor_de_webpagina', return_value=[]):
+            code, inhoud = self.verzoek('/api/apparaten')
+        self.assertEqual(code, 200)
+        self.assertEqual(inhoud['standaard_microfoonnummer'], 7)
+        self.assertEqual(inhoud['microfoons'], microfoons)
+        standaard.assert_called_once_with(microfoons)
+
     def test_actief_achtergrondproces_geeft_zijn_eigen_versie_terug(self):
         # Een dubbelklik kan anders een nog draaiende vorige installatie openen.
         # Dit endpoint laat zien welke code werkelijk in RAM is geladen.
@@ -144,6 +156,17 @@ class TestLokaleWebserver(unittest.TestCase):
                 del self.server.sneltoetsbediening
             else:
                 self.server.sneltoetsbediening = oude
+
+    def test_vb_cable_status_is_uitleesbaar_zonder_schrijven(self):
+        """Status moet leesbaar zijn zonder audiostream of CSRF-schrijfactie."""
+        from unittest.mock import patch
+        meting = {'status': 'ontbreekt', 'bruikbaar': False,
+                  'melding': 'VB-CABLE niet zichtbaar', 'officiele_website': 'https://vb-audio.com/Cable/'}
+        with patch.object(self.bediening, 'geef_vb_cable_status', return_value=meting) as controle:
+            status, inhoud = self.verzoek('/api/vereisten/vb-cable')
+        self.assertEqual(status, 200)
+        self.assertEqual(inhoud, meting)
+        controle.assert_called_once_with()
 
     def test_status_begint_als_niet_verbonden(self):
         status, inhoud = self.verzoek('/api/status')

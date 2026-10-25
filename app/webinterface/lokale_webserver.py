@@ -398,10 +398,17 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
             elif pad == '/api/status':
                 self._stuur_json(200, self.server.bediening.geef_huidige_webstatus())
             elif pad == '/api/apparaten':
+                microfoons = self.server.bediening.geef_apparaten_voor_de_webpagina()
                 self._stuur_json(200, {
-                    'microfoons': self.server.bediening.geef_apparaten_voor_de_webpagina(),
+                    'microfoons': microfoons,
+                    'standaard_microfoonnummer': (
+                        self.server.bediening.geef_standaard_microfoonnummer_voor_de_webpagina(microfoons)
+                    ),
                     'uitvoerapparaten': self.server.bediening.geef_uitvoerapparaten_voor_de_webpagina(),
                 })
+            elif pad == '/api/vereisten/vb-cable':
+                # Alleen uitlezen; geen microfoon openen, installeren of wijzigen.
+                self._stuur_json(200, self.server.bediening.geef_vb_cable_status())
             elif pad == '/api/bibliotheek':
                 self._stuur_json(200, self.server.bediening.geef_geluidsbibliotheek())
             elif pad == '/api/recente-gebruik':

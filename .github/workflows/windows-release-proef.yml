@@ -34,5 +34,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DrostSoundboard-6.0-Windows-beta-proef
-          path: release-velopack/*
+          path: |
+            release-velopack/*Setup.exe
+            release-velopack/*full.nupkg
+            release-velopack/RELEASES-beta
+            release-velopack/releases.beta.json
+            release-velopack/assets.beta.json
+            release-velopack/SHA256SUMS.txt
           if-no-files-found: error

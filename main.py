@@ -50,10 +50,10 @@ def toon_apparaten_in_overzicht(resultaat: ResultaatVanApparaatcontrole) -> None
         + ("gevonden" if resultaat.cable_output_aanwezig else "NIET gevonden")
     )
     print(
-        "Mogelijke Razer-microfoon: "
+        "Mogelijke fysieke microfoon: "
         + (
             "gevonden"
-            if resultaat.razer_microfoon_mogelijk_aanwezig
+            if resultaat.fysieke_microfoon_mogelijk_aanwezig
             else "niet op naam herkend, controleer bovenstaande lijst"
         )
     )
@@ -120,7 +120,7 @@ def voer_eerste_apparaatcontrole_uit() -> int:
                     "aantal_apparaten": len(resultaat.apparaten),
                     "cable_input_aanwezig": resultaat.cable_input_aanwezig,
                     "cable_output_aanwezig": resultaat.cable_output_aanwezig,
-                    "mogelijke_razer_microfoon": resultaat.razer_microfoon_mogelijk_aanwezig,
+                    "mogelijke_fysieke_microfoon": resultaat.fysieke_microfoon_mogelijk_aanwezig,
                 },
             },
         )

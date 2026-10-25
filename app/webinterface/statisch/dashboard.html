@@ -36,13 +36,30 @@
     </header>
 
     <div id="meldingen" class="meldingen" role="status" aria-live="polite"></div>
+    <section id="vb-cable-waarschuwing" class="vb-cable-waarschuwing" role="status"
+             aria-live="polite" aria-labelledby="vb-cable-titel" hidden>
+      <span class="vb-cable-symbool" aria-hidden="true">!</span>
+      <div class="vb-cable-inhoud">
+        <strong id="vb-cable-titel">Virtuele audiokabel controleren</strong>
+        <p id="vb-cable-omschrijving"></p>
+        <p class="vb-cable-uitleg">Je kunt ondertussen je geluidsbibliotheek gebruiken en lokaal luisteren.
+          Voor gebruik als virtuele microfoon heb je VB-CABLE nodig.</p>
+        <div class="vb-cable-acties">
+          <a id="vb-cable-hulp" class="knop knop-ghost knop-klein" href="https://vb-audio.com/Cable/"
+             target="_blank" rel="noopener noreferrer">Officiële VB-CABLE-download</a>
+          <button id="vb-cable-opnieuw" class="knop knop-ghost knop-klein" type="button">Opnieuw controleren</button>
+        </div>
+        <p class="vb-cable-uitleg">Na installatie van de driver is doorgaans een Windows-herstart nodig.
+          DrostSoundboard installeert geen stuurprogramma's automatisch.</p>
+      </div>
+    </section>
     <main class="indeling">
       <div class="hoofdkolom">
         <section class="hoofdpaneel paneel" aria-labelledby="audio-titel">
           <div class="paneelkop">
             <div><p class="bovenlabel">INSTELLINGEN</p><h1 id="audio-titel">Audioverbinding</h1>
               </div>
-            <span id="badge-status" class="status-label">Niet verbonden</span>
+
           </div>
           <div class="bediening-boven">
             <label class="keuze-apparaat" for="microfoonkeuze"><span class="veldlabel">Microfoon</span>
@@ -58,7 +75,7 @@
               <button id="knop-monitor" class="schakelaar" type="button" role="switch" aria-checked="true" aria-label="Meeluisteren aan of uit"><i></i></button></div>
           </div>
           <div class="uitvoer-selectie"><label for="monitor-uitvoer">Luisterapparaat</label>
-            <select id="monitor-uitvoer"><option value="">Automatisch, Razer indien beschikbaar</option></select>
+            <select id="monitor-uitvoer"><option value="">Automatisch (Windows-standaard)</option></select>
             <span class="apparaat-hint" id="monitor-melding">Standaarduitvoer</span></div>
           <div class="meters">
             <div class="meterkolom"><div class="metertitel"><span>MICROFOON · RMS</span><div class="meter-niveaus"><strong id="tekst-microfoon">Niet gemeten</strong><small id="tekst-microfoon-piek" title="Hoogste recente samplepiek, maximaal 1,2 seconde vastgehouden">Piek: —</small></div></div>
@@ -183,7 +200,7 @@
   <dialog id="dialoog-geschiedenis" class="dialoog geschiedenis-dialoog" aria-labelledby="geschiedenis-titel">
     <div class="dialoog-kop"><div><p class="bovenlabel">LOKALE GESCHIEDENIS</p><h2 id="geschiedenis-titel">Afspeelgeschiedenis</h2></div>
       <button class="kruis" type="button" data-sluit="dialoog-geschiedenis" aria-label="Sluiten">×</button></div>
-    <p class="dialoog-subtekst">Preview betekent lokaal luisteren. Naar call betekent verzonden naar VB-CABLE, niet bevestigd door de andere partij.</p>
+    <p class="dialoog-subtekst">Preview speelt alleen lokaal af. Uitzenden stuurt geluid naar de virtuele microfoon. Of een andere app het ontvangt, hangt af van de audio-instellingen.</p>
     <div id="geschiedenis-volledig" class="geschiedenis-lijst" aria-live="polite"></div>
     <div class="dialoog-acties"><button id="knop-geschiedenis-wissen" type="button" class="knop knop-gevaar">Geschiedenis wissen</button>
       <button type="button" class="knop knop-ghost" data-sluit="dialoog-geschiedenis">Sluiten</button></div>

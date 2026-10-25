@@ -16,12 +16,14 @@ import threading
 from typing import Any
 
 from app.audio.apparatenbeheer import controleer_werkelijk_aangesloten_audioapparaten
+from app.audio.vb_cable_vereisten import beoordeel_vb_cable, resultaat_voor_mislukte_controle
 from app.audio.bronduur_en_golfvorm import (bepaal_werkelijke_bronduur, bepaal_werkelijke_fragmentduur,
                                              maak_gedetailleerde_golfvorm_voor_tijdsvenster, BronbestandNietLeesbaar)
 from app.audio.geluidenbibliotheek import PersoonlijkeGeluidenbibliotheek
 from app.audio.kabelcontrole import selecteer_de_twee_uiteinden_van_vb_cable
 from app.audio.live_audiomixer import LiveAudiomixer
 from app.audio.monitor_voor_eigen_headset import MonitorVoorEigenHeadset
+from app.audio.windows_standaardapparaten import vind_wasapi_standaardapparaat
 from app.audio.mp3_en_wav_fragmenten import lees_en_bereid_mp3_of_wav_voor
 from app.diagnostiek.logboek import BeschikbareLogboeken, schrijf_auditgebeurtenis
 from app.webinterface.favorieten_en_instellingen import VasteFavorietenEnInstellingen
@@ -78,6 +80,37 @@ class WebbedieningVanDrostSoundboard:
             and 'vb-audio' not in a.naam.casefold()
         ]
 
+    def geef_standaard_microfoonnummer_voor_de_webpagina(
+        self, zichtbare_microfoons: list[dict[str, Any]],
+    ) -> int | None:
+        """Kies de Windows-standaardinvoer, nooit een fabrikant op naam.
+
+        Ontbreekt die, dan moet de gebruiker zelf een microfoon kiezen.
+        Apparaatnummers zijn tijdelijk en worden opnieuw opgevraagd bij
+        het vernieuwen van de lijst.
+        """
+        try:
+            standaard = vind_wasapi_standaardapparaat(
+                self.audioapparaten.query_devices(),
+                self.audioapparaten.query_hostapis(),
+                'invoer',
+            )
+        except Exception:
+            self.logboeken.softwarelogboek.exception(
+                'Het standaardmicrofoonapparaat kon niet worden bepaald',
+                extra={'gebeurtenis': 'standaard_microfoon_onbekend'},
+            )
+            return None
+        if standaard is None:
+            return None
+        nummer, naam = standaard
+        # Tussen twee WASAPI-vragen kan een USB-apparaat worden losgekoppeld.
+        # Een gelijk nummer met een andere naam is geen veilige automatische keuze.
+        return nummer if any(
+            item['nummer'] == nummer and item['naam'] == naam
+            for item in zichtbare_microfoons
+        ) else None
+
     def geef_uitvoerapparaten_voor_de_webpagina(self) -> list[dict[str, Any]]:
         """Laat alleen echte WASAPI-uitgangen zien, nooit de virtuele kabel."""
         overzicht = controleer_werkelijk_aangesloten_audioapparaten(self.logboeken.softwarelogboek)
@@ -90,8 +123,28 @@ class WebbedieningVanDrostSoundboard:
             and 'vb-audio' not in apparaat.naam.casefold()
         ]
 
+    def geef_vb_cable_status(self) -> dict[str, object]:
+        """Doe alleen op verzoek een apparaatcontrole, buiten de audiocallback.
+
+        De UI krijgt bij een Windows-/PortAudio-fout een onbekende status, geen
+        onterecht advies dat de driver ontbreekt. De echte fout staat in het log.
+        """
+        try:
+            overzicht = controleer_werkelijk_aangesloten_audioapparaten(
+                self.logboeken.softwarelogboek)
+            return beoordeel_vb_cable(overzicht.apparaten)
+        except Exception:
+            self.logboeken.softwarelogboek.exception(
+                'VB-CABLE kon niet op beschikbaarheid worden gecontroleerd',
+                extra={
+                    'gebeurtenis': 'vb_cable_controle_mislukt',
+                    'gegevens': {'foutcode': 'VB-CABLE-001'},
+                },
+            )
+            return resultaat_voor_mislukte_controle()
+
     def stel_meeluisteren_in(self, aan: bool, apparaatnummer: int | None = None) -> None:
-        """Een kapotte headsetmonitor mag de verbinding met Discord niet verbreken."""
+        """Een kapotte headsetmonitor mag de virtuele microfoon niet verbreken."""
         if type(aan) is not bool:
             raise OngeldigeWebactie('WEB-040: meeluisteren moet true of false zijn.')
         if apparaatnummer is not None:
@@ -364,7 +417,7 @@ class WebbedieningVanDrostSoundboard:
         instellingen = self.favorieten.geef_instellingen_van_geluid(geluid_id)
         if self.monitor.ingeschakeld:
             # De monitor is optioneel: bij headsetproblemen blijft de audio
-            # voor de andere gespreksdeelnemers gewoon via VB-CABLE lopen.
+            # voor de virtuele microfoon gewoon via VB-CABLE lopen.
             try:
                 self.monitor.zorg_dat_monitor_kan_afspelen()
             except Exception:

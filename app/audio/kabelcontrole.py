@@ -52,13 +52,14 @@ class MeetresultaatVanKabeltest:
     speelduur_van_testtoon_in_seconden: float
 
 
-def selecteer_de_twee_uiteinden_van_vb_cable(
+def vind_vb_cable_uiteinden(
     beschikbare_apparaten: list[GevondenAudioapparaat],
-) -> GeselecteerdeKabelapparaten:
-    """Gebruik namen en WASAPI in plaats van nummers die later kunnen veranderen.
+) -> tuple[list[GevondenAudioapparaat], list[GevondenAudioapparaat]]:
+    """Herken de gewone VB-CABLE, onafhankelijk van tijdelijke apparaatnummers.
 
-    Bij meerdere identieke kandidaten stoppen we liever dan dat we geluid
-    naar de verkeerde kabel sturen. CABLE In 16ch is hier bewust uitgesloten.
+    Hergebruik dezelfde strenge WASAPI-voorwaarden voor de statusmelding én
+    de audiomixer. Andere virtuele kabels of MME-apparaten zijn niet genoeg.
+    De eerste lijst is de afspeelkant, de tweede de opnamekant.
     """
     if not isinstance(beschikbare_apparaten, list):
         raise TypeError(
@@ -83,6 +84,14 @@ def selecteer_de_twee_uiteinden_van_vb_cable(
         and apparaat.aantal_invoerkanalen >= 2
     ]
 
+    return afspeelkandidaten, opnamekandidaten
+
+
+def selecteer_de_twee_uiteinden_van_vb_cable(
+    beschikbare_apparaten: list[GevondenAudioapparaat],
+) -> GeselecteerdeKabelapparaten:
+    """Selecteer alleen één complete kabel; onduidelijkheid is een fout."""
+    afspeelkandidaten, opnamekandidaten = vind_vb_cable_uiteinden(beschikbare_apparaten)
     if len(afspeelkandidaten) != 1 or len(opnamekandidaten) != 1:
         raise KabelcontroleFout(
             "KABEL-002: er moet precies één gewone VB-CABLE Input en één "

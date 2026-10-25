@@ -18,7 +18,7 @@ from app.audio.signaaldiagnose import (
     bereken_meterstand_op_schaal_van_honderd,
 )
 from diagnoseer_microfoon import (
-    vind_de_razer_microfoon_voor_een_rechtstreekse_test,
+    vind_de_microfoon_voor_een_rechtstreekse_test,
     meet_fysieke_microfoon_zonder_opslag,
 )
 
@@ -180,9 +180,20 @@ class TestLosseMicrofoonControle(unittest.TestCase):
         self.software = MagicMock(spec=logging.Logger)
         self.audit = MagicMock(spec=logging.Logger)
 
-    def test_herkent_de_razermicrofoon_zonder_vast_nummer(self):
-        gevonden = vind_de_razer_microfoon_voor_een_rechtstreekse_test([self.microfoon])
+    def test_herkent_de_enige_microfoon_zonder_vast_nummer(self):
+        gevonden = vind_de_microfoon_voor_een_rechtstreekse_test([self.microfoon])
         self.assertIs(gevonden, self.microfoon)
+
+    def test_kiest_windows_standaard_microfoon_bij_meerdere_merken(self):
+        tweede = GevondenAudioapparaat(26, 'Microfoon (Logitech)', 'Windows WASAPI', 1, 0)
+        gevonden = vind_de_microfoon_voor_een_rechtstreekse_test(
+            [self.microfoon, tweede], standaardnummer=26)
+        self.assertIs(gevonden, tweede)
+
+    def test_zonder_standaard_kiest_diagnose_niet_willekeurig(self):
+        tweede = GevondenAudioapparaat(26, 'Microfoon (Logitech)', 'Windows WASAPI', 1, 0)
+        with self.assertRaisesRegex(RuntimeError, 'MIC-005'):
+            vind_de_microfoon_voor_een_rechtstreekse_test([self.microfoon, tweede])
 
     def test_directe_test_bewaart_alleen_geluidsniveaus(self):
         with patch("diagnoseer_microfoon.time.sleep", return_value=None):

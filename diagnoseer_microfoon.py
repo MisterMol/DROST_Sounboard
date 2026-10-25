@@ -1,4 +1,4 @@
-"""Controleer de fysieke Razer-microfoon los van de virtuele kabel.
+"""Controleer de Windows-standaardmicrofoon los van de virtuele kabel.
 
 Deze test is bewust een apart programma. Daardoor weten we bij stilte in de
 live mixer of het probleem al bij de fysieke opnamebron ontstaat. Geen
@@ -15,21 +15,31 @@ from app.diagnostiek.logboek import (
 )
 
 
-def vind_de_razer_microfoon_voor_een_rechtstreekse_test(apparaten):
-    """Zoek naam en opnamefunctie; WASAPI-nummers verschillen per computer."""
+def vind_de_microfoon_voor_een_rechtstreekse_test(apparaten, standaardnummer=None):
+    """Gebruik de Windows-standaardmicrofoon, of één ondubbelzinnige fysieke microfoon."""
     kandidaten = [
         apparaat for apparaat in apparaten
         if apparaat.api_naam.casefold() == "windows wasapi"
         and apparaat.aantal_invoerkanalen > 0
-        and "razer" in apparaat.naam.casefold()
         and "cable" not in apparaat.naam.casefold()
+        and "vb-audio" not in apparaat.naam.casefold()
     ]
     if not kandidaten:
         raise RuntimeError(
-            "MIC-001: geen Razer-microfoon gevonden via Windows WASAPI. "
-            "Controleer of de headset is aangesloten en voer de apparaatcontrole uit."
+            "MIC-001: geen fysieke microfoon gevonden via Windows WASAPI. "
+            "Controleer je audioapparaten en microfoonrechten."
         )
-    return kandidaten[0]
+    if standaardnummer is not None:
+        standaard = next((a for a in kandidaten if a.huidig_apparaatnummer == standaardnummer), None)
+        if standaard is not None:
+            return standaard
+        raise RuntimeError('MIC-004: de Windows-standaardmicrofoon is niet bruikbaar voor deze test.')
+    if len(kandidaten) == 1:
+        return kandidaten[0]
+    raise RuntimeError(
+        'MIC-005: meerdere microfoons gevonden, maar geen bruikbare Windows-standaardmicrofoon. '
+        'Stel een standaardmicrofoon in via Windows.'
+    )
 
 
 def meet_fysieke_microfoon_zonder_opslag(
@@ -110,15 +120,22 @@ def start_de_rechtstreekse_microfoontest():
     try:
         import sounddevice as geluidsapparatenbibliotheek
         from app.audio.apparatenbeheer import controleer_werkelijk_aangesloten_audioapparaten
+        from app.audio.windows_standaardapparaten import vind_wasapi_standaardapparaat
         apparaten = controleer_werkelijk_aangesloten_audioapparaten(
             logboeken.softwarelogboek
         ).apparaten
-        microfoon = vind_de_razer_microfoon_voor_een_rechtstreekse_test(apparaten)
+        standaard = vind_wasapi_standaardapparaat(
+            geluidsapparatenbibliotheek.query_devices(),
+            geluidsapparatenbibliotheek.query_hostapis(), 'invoer'
+        )
+        microfoon = vind_de_microfoon_voor_een_rechtstreekse_test(
+            apparaten, standaard[0] if standaard else None
+        )
         print("DrostSoundboard - fysieke microfoon controleren")
-        print("Sluit eerst het live-mixervenster zodat de Razer vrij is.")
+        print("Sluit eerst de actieve audioverbinding zodat de microfoon vrij is.")
         print("Deze test doet niets met VB-CABLE en bewaart geen geluidsopname.")
         print(f"Gevonden microfoon: {microfoon.naam}")
-        input("Druk op Enter en PRAAT daarna vijf seconden in de Razer-microfoon: ")
+        input("Druk op Enter en PRAAT daarna vijf seconden in de gekozen microfoon: ")
         print("Meten... praat nu duidelijk in de microfoon.")
         gegevens = meet_fysieke_microfoon_zonder_opslag(
             geluidsapparatenbibliotheek,
@@ -132,14 +149,14 @@ def start_de_rechtstreekse_microfoontest():
         print(f"  Hoogste piek:           {gegevens['hoogste_piek']:.6f}")
         print(f"  Bufferproblemen:       {gegevens['bufferproblemen']}")
         if gegevens["hoogste_rms"] < 0.0001:
-            print("\nGEEN MEETBAAR SIGNAAL. Controleer microfoonmute, Razer-software,")
+            print("\nGEEN MEETBAAR SIGNAAL. Controleer de mute-knop, driverinstellingen,")
             print("Windows microfoonrechten en het invoervolume bij Opnemen.")
             return 2
         if gegevens["hoogste_rms"] < 0.003:
             print("\nEr komt wel audio binnen, maar het niveau is erg laag.")
-            print("Controleer de gain in Windows en de Razer-software.")
+            print("Controleer het invoervolume in Windows en in de driverinstellingen.")
             return 0
-        print("\nGOED: Python ontvangt aantoonbaar geluid van de Razer-microfoon.")
+        print("\nGOED: Python ontvangt aantoonbaar geluid van de gekozen microfoon.")
         return 0
     except Exception as fout:
         logboeken.softwarelogboek.exception(

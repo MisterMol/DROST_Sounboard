@@ -38,7 +38,7 @@ class NepWindowsAudio:
             {'name': 'Luidsprekers (Razer USB Sound Card)', 'max_output_channels': 2, 'hostapi': 0},
             {'name': 'Oude geluidskaart', 'max_output_channels': 1, 'hostapi': 0},
         ]
-    def query_hostapis(self): return [{'name': 'Windows WASAPI'}]
+    def query_hostapis(self): return [{'name': 'Windows WASAPI', 'default_output_device': 1}]
     def OutputStream(self, **kwargs):
         self.gekozen_apparaat = kwargs['device']
         self.stream = NepHeadset(**kwargs)
@@ -53,7 +53,7 @@ class TestEigenHeadsetMonitor(unittest.TestCase):
 
     def tearDown(self): self.monitor.sluit_monitor()
 
-    def test_automatisch_razer_en_nooit_cable_uitvoer(self):
+    def test_automatisch_windows_standaard_en_nooit_cable_uitvoer(self):
         self.assertEqual(self.library.gekozen_apparaat, 1)
         self.assertIn('Razer', self.monitor.huidige_apparaatnaam)
 

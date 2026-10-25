@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from app.audio.windows_com_context import houd_com_beschikbaar_tijdens_audioverbinding
+from app.audio.windows_standaardapparaten import vind_wasapi_standaardapparaat
 
 
 class MonitorFout(RuntimeError):
@@ -46,10 +47,10 @@ class MonitorVoorEigenHeadset:
         self.aantal_ondergelopen_blokken = 0
 
     def _vind_geschikt_uitvoerapparaat(self) -> tuple[int, str]:
-        """Gebruik Razer-WASAPI als die bestaat; anders het standaarduitvoerapparaat.
+        """Gebruik de Windows-standaarduitvoer of een handmatig gekozen apparaat.
 
-        Niet automatisch CABLE Input kiezen, want dat zou het monitorpad
-        opnieuw in de virtuele microfoon kunnen terugkoppelen.
+        Kies nooit de virtuele kabel als lokale uitvoer; dit kan een
+        ongewenste terugkoppeling veroorzaken.
         """
         apparaten = self.audiobibliotheek.query_devices()
         apis = self.audiobibliotheek.query_hostapis()
@@ -68,12 +69,17 @@ class MonitorVoorEigenHeadset:
             if gekozen is None:
                 raise MonitorFout('MON-001: de geselecteerde headset is losgekoppeld. Kies een andere uitvoer.')
             return gekozen
-        razer = next((x for x in kandidaten if 'razer' in x[1].casefold()), None)
-        if razer:
-            return razer
-        if kandidaten:
-            return kandidaten[0]
-        raise MonitorFout('MON-002: er is geen geschikt WASAPI-afspeelapparaat beschikbaar.')
+        if not kandidaten:
+            raise MonitorFout('MON-002: er is geen geschikt WASAPI-afspeelapparaat beschikbaar.')
+        standaard = vind_wasapi_standaardapparaat(apparaten, apis, 'uitvoer')
+        if standaard is not None:
+            gekozen = next((x for x in kandidaten if x[0] == standaard[0]), None)
+            if gekozen is not None:
+                return gekozen
+        raise MonitorFout(
+            'MON-006: Windows heeft geen bruikbaar standaardluisterapparaat. '
+            'Kies handmatig een luisterapparaat bij Instellingen.'
+        )
 
     def kies_uitvoerapparaat(self, nummer: int | None) -> None:
         if nummer is not None and type(nummer) is not int:

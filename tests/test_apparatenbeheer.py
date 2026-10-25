@@ -22,7 +22,7 @@ class TestGeluidsapparaten(unittest.TestCase):
         resultaat = maak_veilig_overzicht_van_audioapparaten(apparaten, self.hostapis, self.logboek)
         self.assertTrue(resultaat.cable_input_aanwezig)
         self.assertTrue(resultaat.cable_output_aanwezig)
-        self.assertTrue(resultaat.razer_microfoon_mogelijk_aanwezig)
+        self.assertTrue(resultaat.fysieke_microfoon_mogelijk_aanwezig)
 
     def test_onverwachte_null_en_verkeerd_type_worden_niet_gezien_als_apparaat(self):
         apparaten = [
