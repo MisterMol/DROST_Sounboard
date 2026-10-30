@@ -75,3 +75,12 @@ Delen-*/
 *.secrets.*
 # Geen ZIP-archieven direct in Git, alleen als Release-bijlage.
 *.zip
+
+# Historische faseverslagen staan nog in de Git-geschiedenis, niet in de actuele repo.
+/FASE*.md
+/FASE*.txt
+/DrostSoundboard_Projectplan.md
+/ARCHITECTUUR.md
+/BIJWERKEN.md
+/LOGO_EN_ICONEN.md
+/UPDATER_1_2_HERSTEL.md
