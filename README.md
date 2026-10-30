@@ -1,32 +1,30 @@
 # DrostSoundboard
 
-Een soundboard voor Windows, gemaakt als hobbyproject. Speel geluiden af via je headset of stuur ze samen met je microfoon naar Discord of een game.
+Een soundboard voor Windows, gemaakt als hobbyproject. Speel geluiden af via je headset, verzend ze via een virtuele microfoon en beheer je eigen geluidsbibliotheek.
 
-**Versie: 6.1.0 RC4 (testversie).**
+**Huidige versie: 6.1.0 RC4 (testversie).**
 
 ## Downloaden
 
 **[DrostSoundboard voor Windows downloaden](https://github.com/MisterMol/DROST_Sounboard/releases)**
 
-1. Open de nieuwste geteste release en download het bestand dat eindigt op `Setup.exe`.
-2. Open de Setup en start DrostSoundboard via het Startmenu of de snelkoppeling.
-3. Kies in de app je microfoon. Je kunt direct geluiden toevoegen en lokaal beluisteren.
+Download bij de nieuwste release `DrostSoundboard.Desktop-beta-Setup.exe`, open het bestand en start de app via het Startmenu of de bureaubladsnelkoppeling. Python en Git zijn niet nodig.
 
-Je hebt geen Python of Git nodig. **Staat er nog geen Setup onder Releases? Dan is er nog geen publieke download.**
+Staat er nog geen Setup op de Releases-pagina? Dan is de installer nog niet openbaar geüpload.
 
-### Geluiden via Discord versturen
+## VB-CABLE (vereist voor Uitzenden)
 
-Daarvoor moet je eenmalig **[VB-CABLE installeren via de officiële VB-Audio-site](https://vb-audio.com/Cable/)**. Pak het driverpakket uit, voer `VBCABLE_Setup_x64.exe` uit als administrator en herstart Windows. Kies daarna in Discord bij de microfoon **CABLE Output (VB-Audio Virtual Cable)**. DrostSoundboard geeft ook zelf een melding als VB-CABLE ontbreekt.
+**VB-CABLE is een aparte afhankelijkheid** en moet worden geïnstalleerd om geluiden via een virtuele microfoon uit te zenden. Download het via de [officiële VB-Audio-website](https://vb-audio.com/Cable/). Zonder VB-CABLE werken Preview en bibliotheekbeheer gewoon.
 
-**[Korte installatiehandleiding](INSTALLEREN.md)**
+[Installatiehandleiding](INSTALLEREN.md)
 
-## Functies
+## Wat zit erin?
 
-15 favorieten, zoeken en filteren op mappen, drie dashboardindelingen, eigen thema's, Preview, Uitzenden, een speler met tijdlijn en herhalen, en stemvervorming. De aparte bibliotheekpagina gebruik je om je geluiden te beheren.
+15 favorieten, snelle zoek- en mapfilters, drie dashboardindelingen, thema's, Preview en Uitzenden, volume en tijdlijn, stemvervorming en een aparte pagina om je geluiden te beheren.
 
 ## Broncode
 
-De broncode staat hier voor wie wil meekijken of ontwikkelen:
+Deze repository bevat de broncode, tests en ontwikkelhulpmiddelen. Wie wil meekijken kan hem clonen:
 
 ```powershell
 git clone https://github.com/MisterMol/DROST_Sounboard.git
@@ -34,6 +32,6 @@ cd DROST_Sounboard
 .\Start_Na_Git_Clone.cmd
 ```
 
-Een clone bevat de Bob- en Elise-stemvoorbeelden, maar **niet de volledige stemruntime en modelgewichten**. Voor normaal gebruik is de Windows Setup bedoeld.
+Een clone bevat de Bob- en Elise-stemvoorbeelden, maar niet de volledige stemruntime of modelgewichten. Voor gewoon gebruik is de Windows Setup bedoeld.
 
-Dit project gebruikt de [MIT-licentie](LICENSE). Externe onderdelen hebben hun eigen voorwaarden, zie [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). De Setup is momenteel niet digitaal ondertekend en updates worden handmatig gedeeld.
+DrostSoundboard valt onder de [MIT-licentie](LICENSE). Voor externe onderdelen gelden aanvullende voorwaarden in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). De Setup is nog niet digitaal ondertekend. Updates worden momenteel handmatig gedeeld.

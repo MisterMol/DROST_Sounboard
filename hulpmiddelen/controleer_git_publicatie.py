@@ -54,7 +54,7 @@ def controleer_project(project: Path) -> tuple[list[str], list[str]]:
     p = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=project,
                        capture_output=True, text=True)
     if p.returncode:
-        return [], ['Geen Git-repository gevonden. Zie GITHUB_PUBLICEREN.md.']
+        return [], ['Geen Git-repository gevonden. Zie .github/GITHUB_PUBLICEREN.md.']
     root = Path(p.stdout.strip()).resolve()
     if root != project.resolve():
         return [], ['Git-root is niet de projectmap; voer de controle vanuit de clone uit.']
@@ -109,7 +109,7 @@ def main() -> int:
     try:
         namen, fouten = controleer_project(Path.cwd())
     except FileNotFoundError:
-        print('Git is niet geïnstalleerd. Zie GITHUB_PUBLICEREN.md.')
+        print('Git is niet geïnstalleerd. Zie .github/GITHUB_PUBLICEREN.md.')
         return 1
     print('Bestanden klaar voor GitHub:', len(namen))
     for naam in namen[:100]:
@@ -122,7 +122,7 @@ def main() -> int:
             print(' ', fout)
         return 1
     if not namen:
-        print('Er staat nog niets klaar voor een commit. Zie GITHUB_PUBLICEREN.md.')
+        print('Er staat nog niets klaar voor een commit. Zie .github/GITHUB_PUBLICEREN.md.')
         return 1
     print('Geen herkenbare verboden bestanden gevonden. Controleer de inhoud nog zelf.')
     print('Dit script heeft niets geüpload, gecommit of gepusht.')

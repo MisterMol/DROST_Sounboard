@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 if not exist ".venv\Scripts\python.exe" (
     echo De Python-omgeving ontbreekt.
     echo Start eerst Installeer_ontwikkelomgeving.bat.
