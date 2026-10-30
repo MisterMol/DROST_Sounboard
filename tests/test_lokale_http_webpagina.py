@@ -47,7 +47,7 @@ class TestLokaleWebserver(unittest.TestCase):
 
     def verzoek(self, pad, methode='GET', gegevens=None, token=True, bestandsnaam=None):
         headers = {}
-        if methode != 'GET' and token:
+        if token and (methode != 'GET' or '/preview-normalisatie' in pad):
             headers['X-Drost-Token'] = self.server.schrijf_token
         if bestandsnaam is not None:
             headers['X-Bestandsnaam'] = bestandsnaam
@@ -74,6 +74,29 @@ class TestLokaleWebserver(unittest.TestCase):
         self.assertEqual(self.verzoek('/dashboard.js')[0], 200)
         self.assertEqual(self.verzoek('/stijl.css')[0], 200)
 
+    def test_live_speleracties_vereisen_eigen_token_en_juist_formaat(self):
+        """Seek/loop moeten dezelfde lokale API-beveiliging behouden."""
+        from unittest.mock import patch
+        afspeelbeurt = '11111111-1111-1111-1111-111111111111'
+        with patch.object(self.bediening, 'bedien_lopend_geluid') as bedien:
+            code, _ = self.verzoek('/api/speler/live', 'POST', {
+                'afspeelbeurt_id': afspeelbeurt, 'positie': .35})
+            self.assertEqual(code, 202)
+            bedien.assert_called_once_with(afspeelbeurt, fractie=.35)
+            bedien.reset_mock()
+            code, _ = self.verzoek('/api/speler/live', 'POST', {
+                'afspeelbeurt_id': afspeelbeurt, 'herhalen': True})
+            self.assertEqual(code, 202)
+            bedien.assert_called_once_with(afspeelbeurt, herhalen=True)
+            with self.assertRaises(HTTPError) as fout:
+                self.verzoek('/api/speler/live', 'POST', {'afspeelbeurt_id': afspeelbeurt,
+                    'herhalen': True, 'positie': .5})
+            self.assertEqual(fout.exception.code, 400)
+        with self.assertRaises(HTTPError) as fout:
+            self.verzoek('/api/speler/live', 'POST', {'afspeelbeurt_id': afspeelbeurt,
+                'positie': .5}, token=False)
+        self.assertIn(fout.exception.code, (400,403))
+
     def test_api_apparaten_geeft_windows_standaard_mee_aan_dashboard(self):
         microfoons = [{'nummer': 2, 'naam': 'Microfoon (Logitech)'},
                       {'nummer': 7, 'naam': 'Microfoon (Realtek)'}]
@@ -85,6 +108,52 @@ class TestLokaleWebserver(unittest.TestCase):
         self.assertEqual(inhoud['standaard_microfoonnummer'], 7)
         self.assertEqual(inhoud['microfoons'], microfoons)
         standaard.assert_called_once_with(microfoons)
+
+    def test_preview_normalisatie_endpoint_geeft_gain_en_cache(self):
+        import numpy as np
+        import soundfile as sf
+        from unittest.mock import patch
+        pad = self.server.media_map / 'geluiden' / 'hard_preview_test.wav'
+        sf.write(pad, np.full(48000, .5, dtype=np.float32), 48000)
+        item = self.bediening.geluidenbibliotheek.voeg_geluidsbestanden_toe([pad])[0]
+        route = f'/api/geluiden/{item.geluid_id}/preview-normalisatie'
+        with patch('app.webinterface.bediening_van_de_audiomotor.bereken_browser_preview_versterkingen',
+                   wraps=self.bediening.geef_preview_normalisatie.__globals__['bereken_browser_preview_versterkingen']) as berekening:
+            code, inhoud = self.verzoek(route)
+            code2, inhoud2 = self.verzoek(route)
+        self.assertEqual(code, 200)
+        self.assertEqual(code2, 200)
+        self.assertEqual(berekening.call_count, 1)
+        self.assertEqual(inhoud, inhoud2)
+        self.assertEqual(inhoud['correcties_db']['uit'], 0)
+        self.assertLess(inhoud['versterkingen']['sterk'], inhoud['versterkingen']['subtiel'])
+        self.assertLess(inhoud['versterkingen']['subtiel'], inhoud['versterkingen']['uit'])
+        code3, ander = self.verzoek(route + '?begin=0.1&duur=0.3')
+        self.assertEqual(code3, 200)
+        self.assertAlmostEqual(ander['duur'], 0.3)
+
+    def test_preview_normalisatie_blokkeert_verzoeken_zonder_token(self):
+        import numpy as np
+        import soundfile as sf
+        pad = self.server.media_map / 'geluiden' / 'preview_privacy.wav'
+        sf.write(pad, np.full(4800, .2, dtype=np.float32), 48000)
+        item = self.bediening.geluidenbibliotheek.voeg_geluidsbestanden_toe([pad])[0]
+        route = f'/api/geluiden/{item.geluid_id}/preview-normalisatie'
+        with self.assertRaises(HTTPError) as fout:
+            self.verzoek(route, token=False)
+        self.assertEqual(fout.exception.code, 400)
+
+    def test_preview_normalisatie_ongeldige_waarden(self):
+        import numpy as np
+        import soundfile as sf
+        pad = self.server.media_map / 'geluiden' / 'weiger.wav'
+        sf.write(pad, np.full(4000, .3, dtype=np.float32), 48000)
+        item = self.bediening.geluidenbibliotheek.voeg_geluidsbestanden_toe([pad])[0]
+        route = f'/api/geluiden/{item.geluid_id}/preview-normalisatie'
+        for params in ('?begin=nan&duur=.1', '?duur=300', '?begin=onbekend', '?extra=1'):
+            with self.subTest(params=params), self.assertRaises(HTTPError) as fout:
+                self.verzoek(route + params)
+            self.assertEqual(fout.exception.code, 400)
 
     def test_actief_achtergrondproces_geeft_zijn_eigen_versie_terug(self):
         # Een dubbelklik kan anders een nog draaiende vorige installatie openen.
@@ -168,6 +237,80 @@ class TestLokaleWebserver(unittest.TestCase):
         self.assertEqual(inhoud, meting)
         controle.assert_called_once_with()
 
+    def test_pieklimiter_api_bewaart_stand_en_weigert_ongeldige_invoer(self):
+        code, inhoud = self.verzoek('/api/instellingen/pieklimiter')
+        self.assertEqual(code, 200)
+        self.assertTrue(inhoud['ingeschakeld'])
+        code, inhoud = self.verzoek('/api/instellingen/pieklimiter', 'POST', {'ingeschakeld': False})
+        self.assertEqual(code, 200)
+        self.assertEqual(inhoud, {'ingeschakeld': False})
+        self.assertFalse(self.bediening.mixer.geef_huidige_status().limiter_aan)
+        self.assertEqual(self.verzoek('/api/instellingen/pieklimiter')[1]['ingeschakeld'], False)
+        for onjuist in ('false', 1, None):
+            with self.subTest(onjuist=onjuist), self.assertRaises(HTTPError) as fout:
+                self.verzoek('/api/instellingen/pieklimiter', 'POST', {'ingeschakeld': onjuist})
+            self.assertEqual(fout.exception.code, 400)
+        with self.assertRaises(HTTPError) as fout:
+            self.verzoek('/api/instellingen/pieklimiter', 'POST', {'ingeschakeld': True}, token=False)
+        self.assertEqual(fout.exception.code, 400)
+        self.assertFalse(self.bediening.favorieten.geef_limiterstand())
+        self.verzoek('/api/instellingen/pieklimiter', 'POST', {'ingeschakeld': True})
+
+    def test_limiter_kent_afzonderlijke_api_meetwaarden(self):
+        code, gegevens = self.verzoek('/api/status')
+        self.assertEqual(code, 200)
+        self.assertIn('limiter_reductie_db', gegevens)
+        self.assertIn('limiter_aan', gegevens)
+        self.assertIn('limiter_terugvallen', gegevens)
+        self.assertTrue(gegevens['limiter_aan'])
+
+    def test_api_normalisatie_bewaart_voorkeur_en_weigert_onveilige_invoer(self):
+        # De gebruiker kan de instelling wijzigen zonder audio te openen.
+        self.assertEqual(self.verzoek('/api/instellingen/normalisatie')[1], {'stand': 'uit'})
+        status, inhoud = self.verzoek('/api/instellingen/normalisatie', 'POST', {'stand': 'normaal'})
+        self.assertEqual((status, inhoud), (200, {'stand': 'normaal'}))
+        self.assertEqual(self.verzoek('/api/instellingen/normalisatie')[1], {'stand': 'normaal'})
+        with self.assertRaises(HTTPError) as fout:
+            self.verzoek('/api/instellingen/normalisatie', 'POST', {'stand': 'sterk'}, token=False)
+        self.assertEqual(fout.exception.code, 400)
+        self.assertEqual(self.verzoek('/api/instellingen/normalisatie')[1]['stand'], 'normaal')
+        with self.assertRaises(HTTPError) as fout:
+            self.verzoek('/api/instellingen/normalisatie', 'POST', {'stand': 123})
+        self.assertEqual(fout.exception.code, 400)
+        self.assertIn('NORM-001', fout.exception.read().decode('utf-8'))
+        self.assertEqual(self.verzoek('/api/instellingen/normalisatie')[1]['stand'], 'normaal')
+        # Andere servertests moeten onafhankelijk van de testvolgorde blijven.
+        self.verzoek('/api/instellingen/normalisatie', 'POST', {'stand': 'uit'})
+
+    def test_api_effectvolume_persisteert_en_beveiligd_is(self):
+        route = '/api/instellingen/effectvolume'
+        code, oorspronkelijk = self.verzoek(route)
+        self.assertEqual(code, 200)
+        try:
+            # Sinds Beta 4.11 zijn alle gehele percentages tot en met 200 geldig.
+            for percentage in (0, 72, 100, 101, 150, 199, 200):
+                with self.subTest(percentage=percentage):
+                    code, inst = self.verzoek(route, 'POST', {'percentage': percentage})
+                    self.assertEqual((code, inst), (200, {'percentage': percentage}))
+                    self.assertEqual(self.verzoek(route)[1], {'percentage': percentage})
+                    self.assertEqual(self.bediening.mixer.geef_algemeen_effectvolume(), percentage)
+                    self.assertEqual(self.verzoek('/api/status')[1]['effectvolume_percentage'], percentage)
+            self.verzoek(route, 'POST', {'percentage': 72})
+            for foutwaarde in (True, 72.5, -1, 201, '72', None):
+                with self.subTest(foutwaarde=foutwaarde):
+                    with self.assertRaises(HTTPError) as fout:
+                        self.verzoek(route, 'POST', {'percentage': foutwaarde})
+                    with closing(fout.exception) as antwoord:
+                        self.assertEqual(antwoord.code, 400)
+                    self.assertEqual(self.verzoek(route)[1]['percentage'], 72)
+            with self.assertRaises(HTTPError) as fout:
+                self.verzoek(route, 'POST', {'percentage': 15}, token=False)
+            with closing(fout.exception) as antwoord:
+                self.assertEqual(antwoord.code, 400)
+            self.assertEqual(self.verzoek(route)[1]['percentage'], 72)
+        finally:
+            self.verzoek(route, 'POST', oorspronkelijk)
+
     def test_status_begint_als_niet_verbonden(self):
         status, inhoud = self.verzoek('/api/status')
         self.assertEqual(status, 200)
@@ -246,10 +389,15 @@ class TestLokaleWebserver(unittest.TestCase):
 
     def test_corrupte_mp3_wordt_met_nederlandse_foutcode_geweigerd(self):
         with self.assertRaises(HTTPError) as fout:
-            self.verzoek('/api/geluiden/importeer','POST',b'geen echte MP3',bestandsnaam='fout.mp3')
-        self.assertEqual(fout.exception.code,400)
-        melding=json.loads(fout.exception.read())['fout']
-        self.assertIn('WEB-038',melding)
+            self.verzoek('/api/geluiden/importeer', 'POST', b'geen echte MP3', bestandsnaam='fout.mp3')
+        with closing(fout.exception) as antwoord:
+            self.assertEqual(antwoord.code, 400)
+            inhoud = json.loads(antwoord.read())
+        # De technische oorzaak blijft apart beschikbaar; de zichtbare tekst is Nederlands.
+        self.assertEqual(inhoud['oorzaakcode'], 'WEB-038')
+        self.assertIn('geen leesbaar MP3- of WAV-bestand', inhoud['fout'])
+        self.assertIn('fout.mp3', inhoud['fout'])
+        self.assertNotIn('WEB-038', inhoud['fout'])
 
     def test_instelscherm_weigert_een_fragment_van_meer_dan_120_seconden(self):
         _,item=self.verzoek('/api/geluiden/importeer','POST',self.maak_geldig_wav(),bestandsnaam='duur-test.wav')

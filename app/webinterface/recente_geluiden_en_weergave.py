@@ -100,6 +100,15 @@ class RecenteGeluidenEnWeergave:
                 )''')
                 database.execute('''CREATE INDEX IF NOT EXISTS index_recente_afspeelbeurten
                     ON recent_afgespeeld(tijdstip_utc DESC, nummer DESC)''')
+                database.execute('''CREATE TABLE IF NOT EXISTS afspeelstatistieken (
+                    geluid_id TEXT PRIMARY KEY, aantal_keer INTEGER NOT NULL DEFAULT 0,
+                    laatst_afgespeeld_utc TEXT NOT NULL
+                )''')
+                # Historisch gebruik zo goed mogelijk eenmalig meenemen, zonder nieuwe tellingen te verliezen.
+                # De oude geschiedenis is begrensd: aantallen van vóór die grens zijn onbekend.
+                database.execute('''INSERT OR IGNORE INTO afspeelstatistieken (geluid_id, aantal_keer, laatst_afgespeeld_utc)
+                    SELECT geluid_id, COUNT(*), MAX(tijdstip_utc) FROM recent_afgespeeld
+                    WHERE wijze='gesprek' GROUP BY geluid_id''')
                 database.execute('''CREATE TABLE IF NOT EXISTS recente_groepen (
                     groep_id TEXT PRIMARY KEY, laatst_gebruikt_utc TEXT NOT NULL
                 )''')
@@ -221,9 +230,13 @@ class RecenteGeluidenEnWeergave:
             with database:
                 # Speelbeurten mogen niet dubbel tellen bij een verzoek dat
                 # opnieuw wordt verstuurd na een trage browserreactie.
-                database.execute('''INSERT OR IGNORE INTO recent_afgespeeld
+                ingevoegd = database.execute('''INSERT OR IGNORE INTO recent_afgespeeld
                     (geluid_id, naam, wijze, tijdstip_utc, afspeelbeurt)
                     VALUES (?, ?, ?, ?, ?)''', (geluid_id, naam[:100], wijze, nu, afspeelbeurt))
+                if ingevoegd.rowcount and wijze == 'gesprek':
+                    database.execute('''INSERT INTO afspeelstatistieken VALUES (?, 1, ?)
+                        ON CONFLICT(geluid_id) DO UPDATE SET aantal_keer=aantal_keer+1,
+                        laatst_afgespeeld_utc=excluded.laatst_afgespeeld_utc''', (geluid_id, nu))
                 groep_ids = database.execute('''SELECT koppeling.groep_id FROM geluiden_in_groep AS koppeling
                     JOIN geluidsgroepen AS groep ON groep.groep_id=koppeling.groep_id
                     WHERE koppeling.geluid_id=?''', (geluid_id,)).fetchall()
@@ -276,6 +289,12 @@ class RecenteGeluidenEnWeergave:
                           'status': x[4], 'afgespeelde_seconden': x[5], 'bestaat_nog': bool(x[6])}
                          for x in geluidregels],
         }
+
+    def geef_afspeelaantallen(self) -> dict[str, int]:
+        """Blijvende teller van werkelijke soundboard-uitzendingen, dus geen previews."""
+        with self._open_database() as database:
+            return {nummer: int(aantal) for nummer, aantal in database.execute(
+                'SELECT geluid_id, aantal_keer FROM afspeelstatistieken')}
 
     def wis_afspeelgeschiedenis(self) -> None:
         """Wis gebruikshistorie, niet bibliotheek, groepen of favorieten."""

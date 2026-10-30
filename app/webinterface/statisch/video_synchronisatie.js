@@ -63,6 +63,7 @@
     let buitenSyncSinds = null;
     let laatsteGroteCorrectie = 0;
     let eersteVideoframe = null;
+    let laatstePositieWijzigingsnummer = null;
 
     function gewenstPositie() {
       const positie = laatsteBeginpositie + laatsteAudiotijd;
@@ -143,6 +144,17 @@
       if (isGestopt) return;
       laatsteAudiotijd = veiligeSeconden(status.afgespeelde_seconden);
       laatsteBeginpositie = veiligeSeconden(status.beginpositie_seconden, laatsteBeginpositie);
+      const wijzigingsnummer = Number(status.positie_wijzigingsnummer || 0);
+      const explicieteSprong = laatstePositieWijzigingsnummer !== null &&
+        wijzigingsnummer !== laatstePositieWijzigingsnummer;
+      laatstePositieWijzigingsnummer = wijzigingsnummer;
+      if (explicieteSprong && video.readyState >= 1) {
+        // Opzettelijk zoeken of een lusgrens moet direct meebewegen.
+        video.currentTime = gewenstPositie();
+        video.playbackRate = 1;
+        buitenSyncSinds = null;
+        return;
+      }
       if (!videoSpeelt || video.paused || video.seeking || video.readyState < 3) return;
 
       const afwijking = gewenstPositie() - video.currentTime;

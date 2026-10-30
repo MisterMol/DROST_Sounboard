@@ -41,12 +41,8 @@ h1,h2,h3,p { margin: 0; }
 .merk { display: inline-flex; align-items: center; gap: 14px; white-space: nowrap; }
 .merk-tekst { font-size: 19px; font-weight: 710; letter-spacing: -.7px; }
 .merk-tekst > span, .opstart-naam span { color: var(--accent); }
-.beeldmerk { height: 38px; width: 38px; border: 1px solid #4f827b; background: #142e2d; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; }
-.merk-balken { display: flex; height: 20px; align-items: center; gap: 3px; }
-.merk-balken i { display: block; width: 3px; background: var(--accent); border-radius: 9px; }
-.merk-balken i:nth-child(1),.merk-balken i:nth-child(5) { height: 6px; }
-.merk-balken i:nth-child(2),.merk-balken i:nth-child(4) { height: 13px; }
-.merk-balken i:nth-child(3) { height: 20px; }
+.beeldmerk { height: 38px; width: 38px; flex: 0 0 38px; display: inline-flex; align-items: center; justify-content: center; }
+.beeldmerk img { display:block; width:100%; height:100%; object-fit:contain; }
 .bovenbalk-rechts { display: flex; align-items: center; gap: 19px; }
 .subtiel-label,.bovenlabel,.veldlabel,.groepen-header>span,.zoeklabel { color: var(--gedempt); letter-spacing: 1.6px; font-size: 10px; font-weight: 760; }
 .status-chip { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--rand); border-radius: 100px; padding: 9px 14px; font-size: 12px; font-weight: 620; color: var(--secundair); background: #111720; }
@@ -63,7 +59,7 @@ h1,h2,h3,p { margin: 0; }
 .paneelkop h1 { font-size: clamp(23px, 2vw, 29px); font-weight: 710; letter-spacing: -.8px; line-height: 1.2; }
 .paneel-uitleg { margin-top: 6px; color: var(--secundair); font-size: 13px; }
 .info-chip,.lengte-tag { border-radius: 100px; padding: 8px 13px; background: #202b34; border: 1px solid #303e49; color: #c6d3dc; font-size: 12px; font-weight: 580; white-space: nowrap; }
-.bediening-boven { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto auto; align-items: end; gap: 10px; }
+.bediening-boven { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: end; gap: 10px; }
 .keuze-apparaat { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 select,.zoekveld,.invoerveld input[type="text"],.invoerveld input[type="number"] { background: #0e131a; color: var(--tekst); border: 1px solid #34414c; border-radius: 9px; padding: 11px 12px; height: 44px; min-width: 0; width: 100%; transition: border-color .16s ease, background .16s ease; }
 select:focus,.zoekveld:focus,input[type="text"]:focus,input[type="number"]:focus { border-color: #70bdb1; outline: 1px solid #70bdb167; }
@@ -76,7 +72,7 @@ select:focus,.zoekveld:focus,input[type="text"]:focus,input[type="number"]:focus
 .knop-ghost:not(:disabled):hover { border-color: #66817d; background: #25333d; }
 .knop-klein { padding-inline: 13px; }
 .connect-dot { width: 8px; height: 8px; background: #173a33; border-radius: 50%; }
-.instellingen-rij { border-top: 1px solid var(--rand-zacht); display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 24px; padding-top: 22px; }
+.instellingen-rij { border-top: 1px solid var(--rand-zacht); display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 26px; margin-top: 24px; padding-top: 22px; }
 .effectenbediening { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .effectenbediening>div { display: grid; gap: 5px; }
 .effectenbediening strong { font-size: 14px; font-weight: 650; }
@@ -89,6 +85,16 @@ select:focus,.zoekveld:focus,input[type="text"]:focus,input[type="number"]:focus
 .uitvoer-selectie label { color: var(--secundair); font-size: 12px; flex-shrink: 0; }
 .uitvoer-selectie select { width: min(360px, 100%); height: 37px; padding: 6px 10px; font-size: 12px; }
 .apparaat-hint { font-size: 11px; color: var(--gedempt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.normalisatie-instelling { display:flex; gap:14px; align-items:center; justify-content:space-between; border-top:1px solid var(--rand-zacht); margin-top:18px; padding-top:15px; }
+.normalisatie-omschrijving { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.normalisatie-omschrijving label { font-size:13px; font-weight:650; }
+.normalisatie-omschrijving span { font-size:11px; color:var(--gedempt); line-height:1.5; }
+.normalisatie-instelling select { width:min(210px,42%); flex-shrink:0; height:38px; font-size:12px; padding:6px 10px; }
+@media (max-width:580px) {
+  .normalisatie-instelling { flex-wrap:wrap; }
+  .normalisatie-instelling select { width:100%; }
+}
+
 .meters { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .meterkolom { min-width: 0; }
 .metertitel { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 10px; }
@@ -126,9 +132,9 @@ select:focus,.zoekveld:focus,input[type="text"]:focus,input[type="number"]:focus
 .technische-status { display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid var(--rand-zacht); margin-top: 22px; padding-top: 15px; font-size: 11px; color: var(--gedempt); line-height: 1.5; }
 .technische-status #buffer-status { white-space: nowrap; }
 
-.nu-actief { display: grid; grid-template-columns: 275px minmax(0,1fr); min-height: 214px; overflow: hidden; }
+.nu-actief { display: grid; grid-template-columns: 275px minmax(0,1fr); min-height: 214px; overflow: clip; }
 .player-beeld { position: relative; background: #0c1419; border-right: 1px solid #25333d; min-height: 214px; overflow: hidden; }
-.player-beeld>img,.player-beeld>video { height: 100%; width: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
+.player-beeld>img,.player-beeld>video { height: 100%; width: 100%; object-fit: cover; object-position: center; display: block; position: absolute; inset: 0; }
 .player-placeholder { height: 100%; min-height: 214px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(circle at 50% 40%,#1d3a39,transparent 55%),#0b1319; color: #8ea4ac; }
 .grote-golf { display: flex; align-items: center; height: 40px; gap: 5px; }
 .grote-golf i { width: 5px; border-radius: 10px; background: #65bcae; opacity: .9; }
@@ -139,11 +145,37 @@ select:focus,.zoekveld:focus,input[type="text"]:focus,input[type="number"]:focus
 .player-details { padding: 24px 27px 19px; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; gap: 20px; }
 .player-details h2 { font-size: 23px; font-weight: 680; letter-spacing: -.45px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-details p:not(.bovenlabel) { color: var(--secundair); line-height: 1.5; font-size: 12px; margin-top: 6px; }
-.tijdlijn-balk { height: 5px; border-radius: 6px; background: #2c3b43; overflow: hidden; }
-.tijdlijn-balk span { height: 100%; width: 0; display: block; border-radius: 6px; background: var(--accent); transition: width .1s linear; }
-.tijdlijn-teksten { display: flex; justify-content: space-between; margin-top: 7px; font-size: 11px; color: var(--gedempt); font-variant-numeric: tabular-nums; }
-.player-knoppen { margin-top: 14px; display: flex; gap: 9px; }
+.player-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.player-meta { align-items: center; }
+.player-volume-regelaar { display:flex; align-items:center; gap:12px; min-width:185px; }
+.player-volume-regelaar label { font-size: 11px; color:var(--secundair); white-space:nowrap; }
+.player-volume-regelaar output { color:var(--accent); font-variant-numeric:tabular-nums; }
+.player-volume-regelaar input { width:100px; min-width:75px; accent-color:var(--accent); cursor:pointer; }
+.player-meta span { background: #1c2d32; border: 1px solid #30494b; color: #b5d4cf;
+  border-radius: 999px; padding: 4px 9px; font-size: 11px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.tijdlijn-balk { position: relative; height: 7px; border-radius: 999px; background: #2c3b43; }
+.tijdlijn-balk>span { height: 100%; width: 0; display: block; border-radius: inherit; background: var(--accent); pointer-events: none; }
+.tijdlijn-balk:has(input:not(:disabled)) { cursor: pointer; }
+.tijdlijn-balk:focus-within { outline: 2px solid var(--accent); outline-offset: 5px; }
+.tijdlijn-schuif,.tijdlijn-balk>input { position:absolute; inset: -11px 0; height: 29px; width: 100%; margin: 0;
+  appearance: none; -webkit-appearance: none; background: transparent; cursor:pointer; }
+.tijdlijn-balk>input:disabled { pointer-events: none; }
+.tijdlijn-balk>input::-webkit-slider-runnable-track { height: 28px; background:transparent; }
+.tijdlijn-balk>input::-moz-range-track { height: 28px; background:transparent; }
+.tijdlijn-balk>input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; margin-top: 7.5px; border-radius: 50%; background: var(--accent);
+  border: 2px solid #13292a; box-shadow: 0 0 0 2px #78d6c540; }
+.tijdlijn-balk>input::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #13292a; }
+.tijdlijn-balk>input:disabled::-webkit-slider-thumb { opacity:0; }
+.tijdlijn-balk>input:disabled::-moz-range-thumb { opacity:0; }
+.tijdlijn-teksten { display: flex; justify-content: space-between; margin-top: 10px; font-size: 11px; color: var(--gedempt); font-variant-numeric: tabular-nums; }
+.player-knoppen { margin-top: 14px; display: flex; align-items:center; gap: 9px; }
 .player-knoppen .knop { min-height: 37px; }
+#knop-preview-herhaal[aria-pressed="true"] { background:#1b3b37; border-color:#438f83; color:var(--accent); }
+#knop-preview-herhaal { margin-right:auto; }
+.player-knoppen #knop-stop { margin-left:auto; }
+@media (prefers-reduced-motion: reduce) { .tijdlijn-balk>span { transition:none; } }
 .knop-stop { background: #47292c; border-color: #664044; color: #f6bfc0; }
 .knop-stop:hover { background: #583338; }
 kbd { border: 1px solid #42515c; color: #a8bac3; font-size: 10px; padding: 2px 5px; border-radius: 4px; font-family: inherit; font-weight: 450; }
@@ -181,7 +213,7 @@ kbd { border: 1px solid #42515c; color: #a8bac3; font-size: 10px; padding: 2px 5
 .hulptip { color: var(--gedempt); font-size: 11px; line-height: 1.65; padding: 14px 2px 8px; }
 .hulptip strong { color:#bfd9d6; font-weight:550; }
 
-.zijbalk { padding: 24px 20px 0; position: sticky; top: 16px; max-height: calc(100vh - 28px); overflow: hidden; display: flex; flex-direction: column; min-height: 600px; }
+.zijbalk { padding: 24px 20px 0; position: sticky; top: 16px; max-height: calc(100vh - 28px); overflow: clip; display: flex; flex-direction: column; min-height: 600px; }
 .zijbalkkop { display:flex; align-items: center; justify-content:space-between; margin-bottom: 18px; }
 .importeerknop { width: 100%; font-size: 13px; }
 .importeerknop strong { font-size:22px; line-height:14px; font-weight:350; }
@@ -268,7 +300,15 @@ dialog[open] { animation: dialoog-in .18s ease-out both; }
 .editor-groepskop {display:flex;flex-direction:column;gap:5px;font-size:12px;}
 .editor-groepskop strong {font-size:13px;}
 .editor-groepskop span {font-size:11px;color:var(--gedempt);}
-.editor-groepen {display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;}
+/* Doorzoekbare boom met een eigen scrollbar, ook bij honderden mappen. */
+.editor-groepen {display:grid;gap:4px;margin-top:8px;max-height:260px;overflow-y:auto;
+  padding:7px;border:1px solid #344b53;border-radius:10px;background:#0f1920;scrollbar-color:#466c70 transparent;}
+.editor-groepen-zoekveld {margin-top:10px;max-width:420px;}
+.editor-groepen-zoekveld input {width:100%;min-width:0;}
+.editor-groepen-teller {font-size:11px;color:#93b8b6;display:block;margin-top:5px;}
+.editor-groepen .groep-keuze {min-height:35px;width:100%;text-align:left;}
+.editor-groepen .groep-keuze span {overflow-wrap:anywhere;}
+.volume-toelichting {display:block;margin-top:8px;color:var(--gedempt);font-size:11px;line-height:1.5;}
 .groep-keuze {display:flex;align-items:center;gap:6px;border:1px solid #40525b;border-radius:7px;padding:7px 8px;font-size:11px;color:#c6d7dc;cursor:pointer;}
 .groep-keuze:has(input:checked) {background:#24433e;border-color:#548f80;color:#d7faef;}
 .groep-keuze input {accent-color:#74ccbc;}
@@ -276,8 +316,7 @@ dialog[open] { animation: dialoog-in .18s ease-out both; }
 
 .opstartscherm { position:fixed; z-index:500; inset:0; background:#0b0e13; display:flex; justify-content:center; align-items:center; pointer-events:none; animation: intro-uit .75s 1s ease-in-out forwards; }
 .opstart-inhoud { display:flex;flex-direction:column;align-items:center;gap:19px; animation:intro-in .55s ease-out both; }
-.beeldmerk-groot { width:88px;height:88px;border-radius:25px; }
-.beeldmerk-groot .merk-balken { transform:scale(2); }
+.beeldmerk-groot { width:88px; height:88px; flex-basis:88px; }
 .opstart-naam {font-weight:750;font-size:36px;letter-spacing:-1.4px;}
 .opstart-bijschrift {font-size:12px;color:#9aaeb9;letter-spacing:.8px;}
 .opstart-streep {height:2px;width:150px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
@@ -292,9 +331,8 @@ dialog[open] { animation: dialoog-in .18s ease-out both; }
   .favoriet {padding:11px;min-height:158px;}
   .nu-actief {grid-template-columns:220px minmax(0,1fr);}
   .bediening-boven {grid-template-columns:minmax(180px,1fr) auto auto;}
-  #knop-vernieuw {grid-column:3;grid-row:1;}
-  #knop-verbinden {grid-column:2;grid-row:1;}
-  #knop-verbreken {grid-column:2 / 4;grid-row:2;justify-self:end;min-width:190px;}
+  #knop-vernieuw {grid-column:2;grid-row:1;}
+  #knop-verbinden {grid-column:3;grid-row:1;}
 }
 @media (max-width:1020px) {
   .indeling {grid-template-columns:minmax(0,1fr);}
@@ -315,7 +353,6 @@ dialog[open] { animation: dialoog-in .18s ease-out both; }
   .keuze-apparaat {grid-column:1 / 3;}
   #knop-vernieuw {grid-column:1;grid-row:2;}
   #knop-verbinden {grid-column:2;grid-row:2;}
-  #knop-verbreken {grid-column:1 / 3;grid-row:3;width:100%;}
   .instellingen-rij {grid-template-columns:1fr;gap:18px;}
   .uitvoer-selectie {flex-wrap:wrap;}
   .meters {grid-template-columns:1fr;gap:20px;}
@@ -328,7 +365,7 @@ dialog[open] { animation: dialoog-in .18s ease-out both; }
   .editor-basis,.editor-onder {grid-template-columns:1fr;}
   .editor-media {min-height:160px;}
   .editor-tijdvelden {grid-template-columns:1fr 1fr;}
-  #knop-editor-preview {grid-column:1 / 3;}
+  #knop-editor-preview, #knop-editor-uitzenden {grid-column:auto;}
   .editor-tijdlijn {padding:12px;}
   dialog {padding:16px;}
   .sectiekop h2 {font-size:21px;}
@@ -358,6 +395,8 @@ dialog[open] { animation: dialoog-in .18s ease-out both; }
 .editor-speler-koppen {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .editor-speler-knoppen {display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 .editor-speler-knoppen .knop {font-size:12px;min-height:37px;}
+#knop-editor-uitzenden {border-color:#487d76;}
+#knop-editor-uitzenden:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
 .editor-speelstatus {color:#a7c4c5;font-size:11px;font-variant-numeric:tabular-nums;}
 .editor-sneltoets {color:#88a3aa;font-size:11px;}
 .editor-voortgang {height:6px;background:#32434c;border-radius:10px;overflow:hidden;margin-top:14px;}
@@ -587,7 +626,7 @@ body {
     var(--achtergrond);
   background-attachment: fixed;
 }
-.beeldmerk { background: color-mix(in srgb, var(--accent) 13%, var(--paneel)); border-color: color-mix(in srgb, var(--accent) 30%, var(--rand)); }
+/* Het vaste merklogo gebruikt dezelfde beeldbron als de EXE en het systeemvak. */
 .merk-tekst > span, .opstart-naam span { color: var(--accent); }
 .status-chip { background: var(--paneel); border-color: var(--rand); }
 .paneel { background: var(--paneel); border-color: var(--rand-zacht); }
@@ -775,7 +814,7 @@ body.compacte-weergave .bovenbalk { height:63px; margin-bottom:15px; }
 .live-video-omhulsel { position: absolute; inset: 0; overflow: hidden; background: #0c1419; }
 .live-video-omhulsel > img,
 .live-video-omhulsel > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-.live-video-omhulsel > video { opacity: 0; transition: opacity 140ms ease-out; }
+.live-video-omhulsel > video { object-fit: cover !important; opacity: 0; transition: opacity 140ms ease-out; }
 .live-video-omhulsel > video.video-zichtbaar { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .live-video-omhulsel > video { transition: none; }
@@ -804,3 +843,713 @@ body.compacte-weergave .bovenbalk { height:63px; margin-bottom:15px; }
   .vb-cable-acties .knop { width:100%; }
 }
 .vb-cable-acties .knop[hidden] { display:none; }
+/* De extra installatie-uitleg is optioneel en neemt pas ruimte in na een klik. */
+.vb-cable-stappen { border-top: 1px solid #6c5d48; padding-top: 10px; margin: 8px 0 12px; }
+.vb-cable-stappen[hidden] { display: none; }
+.vb-cable-stappen summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #f2e9d7; }
+.vb-cable-stappen summary:focus-visible { outline: 2px solid #e7c289; outline-offset: 4px; }
+.vb-cable-stappen ol { margin: 10px 0 0; padding-left: 22px; color: #e2d3ba; font-size: 12px; line-height: 1.7; }
+.vb-cable-stappen li + li { margin-top: 4px; }
+.vb-cable-stappen code { font-size: 11px; color: #fff5e8; overflow-wrap: anywhere; }
+
+/* Beta 5.1: limiterregeling bij Instellingen > Geluid. */
+.limiter-instelling { display: flex; gap: 16px; justify-content: space-between; align-items: center; padding: 12px 14px; margin: 12px 0; border: 1px solid var(--rand, #334155); border-radius: 12px; }
+.limiter-omschrijving { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.limiter-omschrijving > strong { font-size: .92rem; }
+.limiter-omschrijving > span { color: var(--tekst-zacht, #a8b3c4); font-size: .82rem; line-height: 1.5; }
+.limiter-reductie { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: .78rem; }
+.limiter-spoor { width: 116px; height: 6px; border-radius: 5px; background: rgba(120,140,160,.24); overflow: hidden; }
+#limiter-balk { width: 0; height: 100%; background: var(--accent, #78d6c5); transition: width .12s ease-out; }
+@media (prefers-reduced-motion: reduce) { #limiter-balk { transition: none; } }
+
+/* Beta 5.1: overzichtelijke instellingenpagina en één verbindingsknop. */
+[hidden] { display: none !important; }
+.navigatie-instellingen { min-height: 38px; padding-inline: 14px; }
+.navigatie-instellingen[aria-current="page"] { border-color: var(--accent); color: var(--accent); }
+.verbinding-actief { border-color: #90625d; color: #ffcbc7; }
+.verbinding-actief .connect-dot { background: #d78e89; }
+.verbinding-actief:not(:disabled):hover { border-color: #b97871; background: #352528; }
+.instellingen-pagina { max-width: 920px; margin: 0 auto 48px; }
+.instellingen-intro { padding: 20px 2px 23px; }
+.instellingen-intro h1 { font-size: clamp(27px, 3vw, 36px); font-weight: 720; letter-spacing: -.8px; margin-bottom: 8px; }
+.instellingen-intro > p:last-child, .instellingen-voetnoot { font-size: 13px; color: var(--secundair); line-height: 1.6; }
+.instellingen-geluid { padding: 24px 28px; }
+.instellingen-sectiekop { padding-bottom: 16px; border-bottom: 1px solid var(--rand-zacht); }
+.instellingen-sectiekop h2 { font-size: 21px; font-weight: 700; margin-bottom: 7px; }
+.instellingen-sectiekop > p:last-child { font-size: 12px; color: var(--secundair); line-height: 1.6; }
+.instellingen-geluid .normalisatie-instelling { margin-top: 0; border-top: 0; padding: 20px 0; }
+.instellingen-geluid .limiter-instelling { margin: 0; border: 0; border-top: 1px solid var(--rand-zacht); border-radius: 0; padding: 20px 0 6px; }
+.instellingen-geluid .normalisatie-instelling select { min-width: 175px; }
+.instellingen-voetnoot { margin: 16px 2px; }
+@media (max-width: 700px) {
+  .bovenbalk-rechts { gap: 7px; }
+  .bovenbalk-rechts .navigatie-instellingen { font-size: 12px; padding-inline: 8px; }
+  .instellingen-geluid { padding: 18px; }
+}
+@media (max-width: 480px) {
+  .bovenbalk { height: auto; min-height: 64px; flex-wrap: wrap; padding: 12px 0; }
+  .bovenbalk-rechts { width: 100%; flex-wrap: wrap; justify-content: space-between; }
+  .bovenbalk-rechts .knop { min-height: 34px; padding-inline: 9px; font-size: 11px; }
+  .instellingen-pagina .normalisatie-instelling { flex-wrap: wrap; }
+  .instellingen-pagina .normalisatie-instelling select { width: 100%; }
+}
+
+
+/* 6.1 Beta 1: compacte stemvervormer onder Instellingen > Geluid. */
+.stemprofiel-instelling { border-top: 1px solid var(--rand-zacht); padding: 20px 0 5px; }
+.stemprofiel-omschrijving { display:flex; flex-direction:column; align-items:flex-start; gap: 10px; }
+.stemprofiel-omschrijving > strong { font-size: .97rem; }
+.stemprofiel-omschrijving > span, .stemprofiel-hint { font-size: .81rem; line-height: 1.55; color: var(--secundair); }
+.stemprofiel-omschrijving select { width: min(100%, 330px); min-height: 38px; }
+.stemprofiel-testacties { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+#stemvoorbeeld-status { font-size: .81rem; line-height:1.5; flex:1; min-width:210px; color:var(--secundair); }
+#knop-stemvoorbeeld[aria-pressed="true"] { color:#ffcbc7; border-color:#90625d; }
+
+/* 6.1 Beta 2: profileraster, sterkte en twee alleen-lezen dBFS-meters. */
+.stemprofielen-raster { display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:9px;width:100%; }
+.stemprofiel-kaart { background:var(--vlak-2, #151b25); color:var(--tekst, #f5f7fa); border:1px solid var(--rand-zacht);
+  border-radius:11px;min-height:94px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  text-align:center;cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:11px 7px;transition:background .16s,border-color .16s; }
+.stemprofiel-kaart:hover:not(:disabled) { background:rgba(100,140,190,.15); }
+.stemprofiel-kaart[aria-pressed="true"] { border-color:var(--accent); background:rgba(68,160,210,.18); }
+.stemprofiel-kaart:focus-visible { outline:2px solid var(--accent);outline-offset:3px; }
+.stemprofiel-kaart:disabled { opacity:.6;cursor:wait; }
+.stemprofiel-kaart svg { flex-shrink:0; }
+.stemintensiteit-paneel { width:100%;padding:17px 16px;background:rgba(130,150,175,.07);border:1px solid var(--rand-zacht);border-radius:12px; }
+.stemintensiteit-kop,.stemintensiteit-acties { display:flex;justify-content:space-between;gap:13px;align-items:center;flex-wrap:wrap; }
+.stemintensiteit-kop label { font-size:13px;font-weight:700; }
+#stemintensiteit-waarde { font-variant-numeric:tabular-nums;font-weight:750; }
+#stemintensiteit-schuif { width:100%;accent-color:var(--accent);margin:17px 0; }
+.stemintensiteit-acties { font-size:11px;color:var(--secundair); }
+.stemintensiteit-acties .knop { white-space:normal; }
+.stemmeters { margin-top:3px;width:100%;padding:17px;border:1px solid var(--rand-zacht);border-radius:12px; }
+.stemmeters-boven { display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;margin-bottom:13px; }
+#stemmeters-status { color:var(--secundair); }
+.stemmeters-rij { display:grid;grid-template-columns:85px 1fr 80px;align-items:center;gap:11px;margin:10px 0;font-size:12px; }
+.stemmeters-rij output { text-align:right;font-variant-numeric:tabular-nums;font-size:11px; }
+.stemmeters-spoor { height:12px;position:relative;background:rgba(140,160,180,.15);border-radius:8px;overflow:hidden; }
+.stemmeters-vulling { height:100%;width:0%;border-radius:8px;background:linear-gradient(90deg,#29a897,#b6b46b,#db9863);transition:width .09s ease-out; }
+.stemmeters-schaal { display:flex;justify-content:space-between;color:var(--secundair);font-size:10px;padding:0 80px 0 96px; }
+@media(max-width:520px) { .stemprofielen-raster { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stemmeters-rij { grid-template-columns:68px 1fr 71px;gap:6px; }
+  .stemmeters-schaal { padding:0 71px 0 76px; } }
+@media (prefers-reduced-motion: reduce) { .stemmeters-vulling,.stemprofiel-kaart { transition:none; } }
+
+/* 6.1 beta 3: voorbeeldstemmen en extra parameters staan uitsluitend bij Instellingen. */
+.stem-demo-kop { width:100%; display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:14px;
+  background:rgba(130,150,175,.07); border:1px solid var(--rand-zacht); border-radius:12px; }
+.stem-demo-kop label { font-weight:700; font-size:.86rem; }
+.stem-demo-kop select { width:min(100%,200px); flex:1; }
+.stem-demo-uitleg,.stem-demo-status { color:var(--secundair); font-size:.82rem; line-height:1.55; margin:0; }
+.stem-demo-status:not(:empty) { padding:5px 0; }
+.stem-extra-paneel { width:100%; background:rgba(130,150,175,.065); border:1px solid var(--rand-zacht);
+  border-radius:12px; padding:16px; }
+.stem-extra-paneel[hidden] { display:none; }
+.stem-extra-paneel h3 { font-size:.95rem; margin:0 0 5px; }
+.stem-extra-paneel p { font-size:.78rem; color:var(--secundair); margin:0 0 12px; }
+.stem-extra-velden { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
+.stem-extra-veld { display:flex; flex-direction:column; gap:6px; font-size:.8rem; }
+.stem-extra-veld label { display:flex; justify-content:space-between; gap:9px; font-weight:600; }
+.stem-extra-veld input[type=range] { width:100%; accent-color:var(--accent); }
+.stem-extra-veld select { width:100%; min-width:0; }
+@media(max-width:510px){ .stem-demo-kop #knop-stem-demo { width:100%; } }
+
+/* 6.1 Beta 3.1: eigen microfoon duidelijk gescheiden van voorbeeldstemmen. */
+.stem-eigen-test { width:100%;padding:18px;border:1px solid var(--accent);border-radius:14px;
+  background:rgba(47,154,183,.09);display:flex;flex-direction:column;gap:10px; }
+.stem-eigen-test > strong {font-size:1rem;}
+.stem-eigen-test > p {margin:0;font-size:.84rem;color:var(--secundair);line-height:1.55;}
+.stem-eigen-test .stemprofiel-testacties {width:100%;}
+.stem-eigen-test #knop-stemvoorbeeld {min-height:48px;padding:12px 22px;font-size:.96rem;font-weight:750;}
+.stem-eigen-test .stemmeters {background:rgba(0,0,0,.06);}
+@media(max-width:570px){.stem-eigen-test #knop-stemvoorbeeld{width:100%;}}
+
+/* 6.1 Beta 4: één volwaardige bibliotheekpagina en een compacte audiobediening. */
+[hidden] { display:none!important; }
+/* De lijst met mappen mag niet terugvallen op twee zichtbare regels. */
+.groepen-lijst { min-height:260px; max-height:min(58vh,620px); overflow-y:auto; margin-bottom:14px; }
+.groep-filter { min-height:38px; font-size:12px; }
+.groep-filternaam { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; line-height:1.25; }
+.bibliotheek-naam strong { font-size:13px; white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; overflow-wrap:anywhere; line-height:1.35; }
+.bibliotheek-naam { min-width:0; }
+.bibliotheek-item { min-height:75px; }
+.zijbalk-sorteren { display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;font-size:11px;color:var(--secundair);padding:13px 0 15px; }
+.zijbalk-sorteren select { min-height:34px;height:34px;width:min(210px,100%);padding:5px 8px;font-size:11px; }
+.bibliotheek-pagina { max-width:1500px; margin:0 auto 70px; }
+.bibliotheek-pagina-kop { display:flex;justify-content:space-between;align-items:center;gap:18px;padding:8px 0 21px; }
+.bibliotheek-pagina-kop h1 { font-size:clamp(25px,2.2vw,34px);letter-spacing:-.7px;margin:0 0 5px; }
+.bibliotheek-pagina-kop p:not(.bovenlabel) { font-size:13px;color:var(--secundair); }
+.bibliotheek-werkvlak { display:grid;grid-template-columns:minmax(230px,275px) minmax(0,1fr);gap:18px;align-items:stretch; }
+.bibliotheek-mapkolom { padding:15px 10px;position:sticky;top:12px;align-self:start; }
+.mapkolom-kop { display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 5px 12px; }
+.bibliotheek-mapkolom > p { color:var(--gedempt);line-height:1.55;font-size:11px;padding:12px 7px; }
+.bibliotheek-pagina .beheer-groepkaarten { max-height: min(70vh,760px);overflow:auto;display:flex;flex-direction:column;gap:3px;border:0;padding:0;margin:0; }
+.bibliotheek-pagina .beheer-groepkaart { display:flex;align-items:center;flex:1;max-width:none;min-width:0;min-height:38px;border-radius:8px;background:transparent;font-size:12px;gap:8px;padding:8px 11px; }
+.bibliotheek-pagina .beheer-groepkaart.actief { background:var(--accent-donker); }
+.beheer-mappenrij { display:flex;gap:3px;align-items:center;min-width:0; }
+.beheer-mapnaam { min-width:0; flex:1;overflow-wrap:anywhere; }
+.beheer-mapacties { border:0;background:transparent;color:var(--secundair);padding:5px 8px;border-radius:7px; }
+.beheer-mapacties:hover { background:var(--paneel-hoog); }
+.beheer-groepteller { margin-left:auto;flex-shrink:0; }
+.bibliotheek-werk-rechts { min-width:0; }
+.bibliotheek-pagina .beheer-tabel { max-height:none;min-height:300px;overflow:visible;background:var(--paneel); }
+.bibliotheek-pagina .beheer-rij { grid-template-columns:24px 44px minmax(150px,1fr) 96px 75px 82px 30px; }
+.bibliotheek-pagina .beheer-rij-tekst strong {font-size:13px;white-space:normal;overflow-wrap:anywhere;line-height:1.35;}
+.bibliotheek-pagina .beheer-rij-tekst small {white-space:normal;overflow-wrap:anywhere;}
+.snel-stem { padding:14px 15px;margin-top:19px;border:1px solid var(--rand);border-radius:12px;background:var(--paneel-hoog);display:grid;gap:9px; }
+.snel-stem-kop { display:flex;justify-content:space-between;align-items:center;gap:12px; }
+.snel-stem-kop strong {font-size:13px;}
+.snel-stem-kop span {font-size:11px;color:var(--secundair);}
+.snel-stem-acties {display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;}
+.snel-stem-acties select {height:38px;padding:7px 12px;font-size:12px;}
+.snel-stem-acties .knop {min-height:38px;font-size:12px;padding:7px 12px;}
+.audiopack-dialoog {max-width:680px;}
+.audiopack-dialoog #audiopack-status {font-size:12px;color:var(--secundair);line-height:1.5;margin:12px 0;}
+.audiopack-hulprij {display:flex;gap:9px;margin:8px 0;}
+.audiopack-boom {max-height:55vh;overflow-y:auto;min-height:130px;background:var(--achtergrond);padding:10px 2px;border:1px solid var(--rand);border-radius:10px;}
+.audiopack-rij {display:flex;gap:9px;align-items:center;min-height:35px;padding:6px 12px;cursor:pointer;}
+.audiopack-rij:hover {background:var(--paneel-hoog);}
+.audiopack-rij input {accent-color:var(--accent);flex-shrink:0;}
+.audiopack-rij .audiopack-naam {flex:1;overflow-wrap:anywhere;font-size:12px;}
+.audiopack-rij small {color:var(--gedempt);font-size:10px;}
+@media (max-width:1050px){
+  .bibliotheek-werkvlak { grid-template-columns:220px minmax(0,1fr); }
+  .bibliotheek-pagina .beheer-rij {grid-template-columns:22px 40px minmax(100px,1fr) 74px 80px 30px;gap:6px;}
+  .bibliotheek-pagina .beheer-rij-duur {display:none;}
+}
+@media (max-width:740px){
+  .bibliotheek-werkvlak {display:block;}
+  .bibliotheek-mapkolom {position:static;margin-bottom:16px;}
+  .bibliotheek-pagina .beheer-groepkaarten {max-height:300px;}
+  .bibliotheek-pagina .beheer-rij {grid-template-columns:22px 38px minmax(70px,1fr) 72px 29px;}
+  .bibliotheek-pagina .beheer-bewerken {display:none!important;}
+  .snel-stem-acties {grid-template-columns:1fr auto;}
+  .snel-stem-acties #snel-stem-details {grid-column:1/-1;}
+  .zijbalk-sorteren {grid-template-columns:1fr;}
+  .zijbalk-sorteren select {width:100%;}
+}
+
+/* Gevaarlijker bulkacties blijven bereikbaar, maar drukken de hoofdbediening niet weg. */
+.bibliotheek-pagina #beheer-groep {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.bibliotheek-pagina .beheer-zoekrij {grid-template-columns:minmax(200px,2fr) repeat(2,minmax(140px,1fr));}
+.beheer-meer-acties {flex-basis:100%;border:1px solid var(--rand);border-radius:10px;padding:7px 11px;}
+.beheer-meer-acties summary {cursor:pointer;color:var(--secundair);font-size:12px;padding:6px;}
+.beheer-extra-acties {display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 4px;align-items:center;}
+@media(max-width:760px){.bibliotheek-pagina .beheer-zoekrij{grid-template-columns:1fr 1fr;}}
+
+/* Beta 4.1: eigen stemmonitor en duidelijk bibliotheekoverzicht. */
+.eigen-stem-bediening { min-width:0; display:grid; gap:12px; align-content:start; }
+.eigen-stem-volume { display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center;
+  font-size:12px; color:var(--gedempt); }
+.eigen-stem-volume input { grid-column:1 / -1; width:100%; accent-color:var(--accent); cursor:pointer; }
+.eigen-stem-volume input:disabled { opacity:.45; cursor:not-allowed; }
+.eigen-stem-volume output { grid-column:3; font-variant-numeric:tabular-nums; font-weight:650; color:var(--tekst); }
+.audiopack-dubbelen-keuze { display:flex; align-items:center; gap:8px; margin:10px 0; padding:10px;
+  color:var(--gedempt); font-size:12px; }
+.audiopack-dubbelen-keuze input { accent-color:var(--accent); }
+.audiopack-rij.bestaand { opacity:.77; }
+.audiopack-rij.bestaand small { color:var(--gedempt); }
+.export-overzicht-inhoud { display:grid; gap:8px; padding:12px; background:var(--paneel-hoog);
+  border:1px solid var(--rand-zacht); border-radius:12px; max-height:280px; overflow-y:auto; }
+.export-overzicht-inhoud .mapnaam { overflow-wrap:anywhere; font-size:12px; }
+@media (max-width:1050px) { .instellingen-rij { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:720px) { .instellingen-rij { grid-template-columns:1fr; } }
+
+/* 6.1 Beta 4.2: vaste navigatie, duidelijke metadata en veilige bibliotheekreset. */
+.hoofdnavigatie { display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.hoofdnavigatie .navigatie-link { white-space:nowrap; border:1px solid transparent; border-radius:10px; }
+.hoofdnavigatie .navigatie-link[aria-current="page"] {
+  border-color:var(--accent); color:var(--accent); background:var(--accent-donker);
+  box-shadow:0 0 0 1px var(--accent-donker) inset;
+}
+.hoofdnavigatie .navigatie-link:hover { border-color:var(--rand); }
+.hoofdnavigatie .navigatie-link[aria-current="page"]:hover { border-color:var(--accent); }
+.bibliotheek-pagina .beheer-rij {grid-template-columns:24px 44px minmax(150px,1fr) minmax(130px,auto) 75px 82px 30px;}
+.beheer-rij-duur {display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.beheer-metadatatip {position:relative;cursor:help;white-space:nowrap;border-bottom:1px dotted currentColor;outline-offset:3px;}
+.beheer-metadatatip:is(:hover,:focus-visible)::after {
+  content:attr(data-uitleg);position:absolute;bottom:calc(100% + 8px);left:50%;
+  transform:translateX(-50%);padding:7px 10px;border-radius:8px;
+  width:max-content;max-width:240px;white-space:normal;
+  z-index:20;background:var(--paneel-hoog);border:1px solid var(--rand);
+  color:var(--tekst);box-shadow:0 6px 24px #0007;pointer-events:none;font-size:12px;
+}
+.bibliotheek-gevaarzone {margin:12px 0 16px;border:1px solid var(--rand);border-radius:12px;padding:8px 15px;}
+.bibliotheek-gevaarzone summary {cursor:pointer;color:var(--secundair);font-size:13px;padding:7px 0;}
+.bibliotheek-gevaarzone p {font-size:12px;line-height:1.6;color:var(--secundair);margin:10px 0;}
+.bibliotheek-gevaarzone .knop-gevaar,
+#dialoog-bibliotheek-reset .knop-gevaar {background:#38262a;border:1px solid #895559;color:#ffd1d4;}
+.bibliotheek-reset-resultaat {overflow-wrap:anywhere;}
+#dialoog-bibliotheek-reset .invoerveld {display:flex;flex-direction:column;gap:7px;margin:15px 0;}
+#dialoog-bibliotheek-reset input {width:100%;padding:11px;border:1px solid var(--rand);border-radius:9px;background:var(--achtergrond);color:var(--tekst);}
+#dialoog-bibliotheek-reset button:disabled {opacity:.45;cursor:not-allowed;}
+@media(max-width:1050px){.bibliotheek-pagina .beheer-rij-duur{display:none;}}
+@media(max-width:840px){.hoofdnavigatie{gap:2px;}.hoofdnavigatie .navigatie-link{font-size:12px;padding-inline:9px;}}
+
+/* 6.1 Beta 4.3: één rustige volumeregelaar onder Instellingen > Geluid. */
+.effectvolume-instelling { display: grid; grid-template-columns: minmax(0,1fr) minmax(220px, 46%);
+  gap: 20px; align-items: center; padding: 12px 0 22px; border-bottom: 1px solid var(--rand-zacht); }
+.effectvolume-omschrijving { display: grid; gap: 6px; min-width: 0; }
+.effectvolume-omschrijving strong { font-size: 15px; }
+.effectvolume-omschrijving span, .effectvolume-voet span { font-size: 12px; line-height: 1.45; color: var(--gedempt); }
+.effectvolume-bediening { display: grid; gap: 8px; min-width: 0; }
+.effectvolume-kop, .effectvolume-voet { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.effectvolume-kop label { font-size: 12px; font-weight: 600; }
+#algemeen-effectvolume-waarde { font-variant-numeric: tabular-nums; font-weight: 750; }
+#algemeen-effectvolume { width: 100%; cursor: pointer; accent-color: var(--accent); }
+#algemeen-effectvolume:disabled { opacity: .5; cursor: not-allowed; }
+.effectvolume-voet .knop { min-height: 32px; }
+.effectvolume-meetregel { display: grid; gap: 5px; font-size: 12px; color: var(--gedempt); }
+#effectvolume-demping { font-weight: 650; color: var(--tekst); font-variant-numeric: tabular-nums; }
+#effectvolume-live { font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) {
+  .effectvolume-instelling { grid-template-columns: 1fr; gap: 12px; }
+}
+
+
+/* Beta 4.9: snel zoeken en uitzenden in de compacte en volledige bibliotheek. */
+@media(min-width:1151px) {
+  .indeling {grid-template-columns:minmax(0,1fr) 405px;gap:18px;}
+}
+@media(min-width:1151px) and (max-width:1390px) {
+  .indeling {grid-template-columns:minmax(0,1fr) 375px;}
+}
+@media(max-width:1150px) {
+  .indeling {grid-template-columns:minmax(0,1fr);}
+  .zijbalk {position:static;max-height:none;min-height:0;}
+  .bibliotheek-lijst {overflow:visible;max-height:none;}
+  .groepen-lijst {display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));max-height:230px;overflow-y:auto;}
+}
+.zijbalk-zoekkop {margin:0 0 8px;letter-spacing:.5px;font-size:11px;}
+.zijbalk>.zoekveld {font-size:14px;min-height:44px;margin:0 0 12px;border-color:var(--rand);}
+.zijbalk>.zoekveld:focus {border-color:var(--accent);}
+.zijbalk>.groepen-lijst {max-height:min(36vh,330px);min-height:105px;}
+/* Aan het einde van een interne lijst moet het hoofdscherm gewoon verder scrollen. */
+.bibliotheek-lijst {overscroll-behavior-y:auto;}
+.bibliotheek-item {display:grid;grid-template-columns:43px minmax(0,1fr) auto auto 29px;
+  gap:6px;padding:9px 7px;align-items:center;min-height:66px;}
+.bibliotheek-naam strong {font-size:12.5px;-webkit-line-clamp:2;}
+.bibliotheek-item .lijst-previewknop,.bibliotheek-item .lijst-uitzendknop {
+  min-width:0;padding-inline:9px;height:34px;white-space:nowrap;font-size:11px;
+}
+.lijst-uitzendknop {border:1px solid color-mix(in srgb,var(--accent) 55%,var(--rand));
+  background:color-mix(in srgb,var(--accent) 14%,var(--paneel));color:var(--tekst);
+  border-radius:8px;min-height:34px;padding:0 11px;font-size:11px;font-weight:650;cursor:pointer;}
+.lijst-uitzendknop:not(:disabled):hover {border-color:var(--accent);background:color-mix(in srgb,var(--accent) 23%,var(--paneel));}
+.lijst-uitzendknop.uitzend-stop-actief {color:#ffd6d9;background:#54262d;border-color:#b8787a;}
+.bibliotheek-item:has(.uitzend-stop-actief) {background:color-mix(in srgb,var(--accent) 9%,var(--paneel));}
+.bibliotheek-pagina .beheer-rij {grid-template-columns:24px 42px minmax(115px,1fr) minmax(105px,auto) 74px 78px 83px 29px;gap:7px;}
+.bibliotheek-pagina .beheer-rij .lijst-uitzendknop {min-width:0;}
+/* Bediening blijft in half scherm en op staande monitor te gebruiken. */
+@media(max-width:850px) {
+  .bibliotheek-pagina .beheer-rij {grid-template-columns:22px 38px minmax(85px,1fr) 72px 78px 29px;gap:6px;}
+  .bibliotheek-pagina .beheer-bewerken,.bibliotheek-pagina .beheer-rij-duur {display:none;}
+}
+@media(max-width:540px) {
+  .bibliotheek-item {grid-template-columns:36px minmax(0,1fr) 27px;grid-template-rows:auto auto;gap:5px;}
+  .bibliotheek-item .bibliotheek-kunst {width:36px;height:36px;grid-row:1/3;}
+  .bibliotheek-item .bibliotheek-naam {grid-column:2;grid-row:1;}
+  .bibliotheek-item .lijst-previewknop {grid-column:2;grid-row:2;justify-self:start;width:calc(50% - 3px);}
+  .bibliotheek-item .lijst-uitzendknop {grid-column:2;grid-row:2;justify-self:end;width:calc(50% - 3px);}
+  .bibliotheek-item .bibliotheek-acties-knop {grid-column:3;grid-row:1/3;}
+  .bibliotheek-pagina .beheer-rij {grid-template-columns:20px minmax(0,1fr) auto auto 29px;gap:4px;}
+  .bibliotheek-pagina .beheer-kunst,.bibliotheek-pagina .beheer-bewerken,.bibliotheek-pagina .beheer-rij-duur {display:none;}
+  .bibliotheek-pagina .beheer-rij .lijst-previewknop,
+  .bibliotheek-pagina .beheer-rij .lijst-uitzendknop {font-size:10px;padding:0 6px;min-width:0;}
+}
+#knop-preview-herhaal {display:inline-flex;align-items:center;justify-content:center;min-width:84px;}
+
+/* Beta 4.10: vaste spelerbediening en leesbare bibliotheekkaarten. */
+.player-meta { min-width:0; }
+.player-volume-regelaar { width:100%; max-width:440px; }
+.player-volume-regelaar label { display:flex; justify-content:space-between; gap:12px; }
+.player-knoppen { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.player-knoppen .knop { flex:0 1 auto; min-height:38px; }
+#knop-speler-opnieuw:disabled { opacity:.45; cursor:not-allowed; }
+#knop-preview-herhaal { min-width:130px; }
+.bibliotheek-zoekopties { display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:12px; color:var(--gedempt); }
+.bibliotheek-zoekopties label { display:flex; align-items:center; gap:6px; }
+.bibliotheek-zoekopties input { accent-color:var(--accent); }
+.bibliotheek-resultaten { margin:0 0 12px; font-size:12px; line-height:1.5; color:var(--gedempt); }
+.zijbalk-mappen { border:1px solid var(--rand); border-radius:10px; padding:10px; margin-bottom:12px; }
+.zijbalk-mappen summary { cursor:pointer; font-size:13px; font-weight:600; }
+.zijbalk-mappen[open] summary { margin-bottom:12px; }
+.zijbalk-mappen .groepen-lijst { max-height:210px; overflow-y:auto; min-height:0; }
+.bibliotheek-lijst { display:flex; flex-direction:column; gap:8px; min-height:180px; }
+.bibliotheek-item { display:grid; grid-template-columns:44px minmax(0,1fr) 28px;
+  grid-template-rows:auto auto; gap:6px 10px; padding:12px; min-height:94px;
+  border:1px solid var(--rand); border-radius:12px; background:var(--paneel); }
+.bibliotheek-item:hover { border-color:var(--accent); }
+.bibliotheek-item .bibliotheek-kunst { grid-column:1; grid-row:1/3; width:44px; height:44px; align-self:start; }
+.bibliotheek-item .bibliotheek-naam { grid-column:2; grid-row:1; min-width:0; }
+.bibliotheek-item .bibliotheek-naam strong { font-size:13px; line-height:1.4; -webkit-line-clamp:2; overflow-wrap:anywhere; }
+.bibliotheek-item .bibliotheek-naam small { font-size:11px; line-height:1.5; }
+.bibliotheek-speelacties { grid-column:2/4; grid-row:2; display:flex; flex-wrap:wrap; gap:8px; }
+.bibliotheek-item .bibliotheek-speelacties .lijst-previewknop,
+.bibliotheek-item .bibliotheek-speelacties .lijst-uitzendknop {
+  width:auto; min-width:82px; height:34px; padding:0 12px; font-size:12px; }
+.bibliotheek-item .bibliotheek-acties-knop { grid-column:3; grid-row:1; align-self:start; }
+@media(min-width:1151px){ .indeling {grid-template-columns:minmax(0,1fr) 410px;} }
+@media(min-width:1151px) and (max-width:1390px){ .indeling {grid-template-columns:minmax(0,1fr) 380px;} }
+@media(max-width:540px){
+  .bibliotheek-item { grid-template-columns:36px minmax(0,1fr) 26px; gap:6px 8px; padding:10px; }
+  .bibliotheek-item .bibliotheek-kunst { width:36px; height:36px; }
+  .bibliotheek-item .bibliotheek-speelacties .lijst-previewknop,
+  .bibliotheek-item .bibliotheek-speelacties .lijst-uitzendknop { min-width:76px; flex:1; }
+  .player-volume-regelaar { min-width:0; }
+  .player-knoppen .knop { font-size:12px; padding:8px 11px; }
+}
+.player-volume-regelaar { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; }
+.player-volume-regelaar input { width:100%; min-width:0; }
+
+/* Beta 4.11: compacte bediening; mappen mogen de geluidslijst niet verdringen. */
+.app-verbinding-melding { display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding:12px 16px; margin:0 0 14px; border:1px solid var(--accent);
+  border-radius:12px; background:var(--paneel); color:var(--tekst); }
+.app-verbinding-melding[hidden] { display:none; }
+.app-verbinding-melding p { margin:0; font-size:13px; line-height:1.5; }
+.app-verbinding-melding .knop { flex-shrink:0; }
+.volume-samenhang { display:block; font-size:11px; line-height:1.5; color:var(--gedempt); font-weight:400; }
+/* Beta 4.12: ongeveer 30% van de tijdlijn, zonder de volumelogica te wijzigen.
+   Op smalle schermen blijft 120px over voor label, percentage en bediening. */
+.player-volume-regelaar { width:30%; min-width:min(120px,100%); max-width:100%; flex:0 0 auto; }
+.player-volume-regelaar input { margin-inline:0; }
+.player-meta > .volume-samenhang { flex-basis:100%; }
+.volume-toelichting { line-height:1.55; }
+.zijbalk { padding:16px 14px 12px; min-height:0; }
+.zijbalk > * { flex-shrink:0; }
+.zijbalk .zijbalkkop { margin-bottom:10px; }
+.zijbalkkop .bovenlabel { margin-bottom:4px; }
+.zijbalkkop h2 { font-size:20px; }
+.zijbalkkop .info-chip { padding:5px 10px; min-height:28px; }
+.zijbalk-zoekkop { margin-bottom:5px; font-size:11px; }
+.zijbalk > .zoekveld { min-height:36px; height:36px; padding:7px 10px; margin-bottom:7px; font-size:13px; }
+.bibliotheek-zoekopties { font-size:11px; margin-bottom:3px; gap:4px; }
+.bibliotheek-resultaten { margin:0 0 7px; font-size:11px; }
+.bibliotheek-werkbalk { display:grid; grid-template-columns:1fr 2fr; gap:6px; align-items:center; margin:0 0 7px; }
+.bibliotheek-werkbalk .importeerknop { margin:0; width:100%; }
+.bibliotheek-werkbalk .bibliotheek-extra-acties { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0; }
+.bibliotheek-werkbalk .knop { min-height:32px; height:32px; padding:5px 7px; font-size:11px; border-radius:8px; white-space:nowrap; }
+.zijbalk .zijbalk-sorteren { display:grid; grid-template-columns:1fr auto; gap:8px; padding:2px 0 7px; margin:0; }
+.zijbalk .zijbalk-sorteren select { height:30px; min-height:30px; padding:4px 7px; width:auto; max-width:180px; }
+.zijbalk-mappen { padding:7px 9px; margin-bottom:8px; }
+.zijbalk-mappen summary { font-size:12px; min-height:20px; }
+.zijbalk-mappen[open] summary { margin-bottom:7px; }
+.zijbalk-mappen .zoekveld { width:100%; min-height:30px; height:30px; padding:5px 8px; font-size:12px; margin:0 0 5px; }
+.zijbalk-mappen .groepen-header { margin:0 0 4px; padding:0; min-height:22px; font-size:10px; }
+.zijbalk-mappen .groepen-lijst { display:flex; flex-direction:column; gap:2px;
+  max-height:112px; min-height:0; margin:0; padding-right:2px; overflow-y:auto; overscroll-behavior-y:auto; }
+.zijbalk-mappen .groep-filter { min-height:30px; padding-top:5px; padding-bottom:5px; font-size:11px; }
+.zijbalk-mappen .groep-acties { min-width:26px; min-height:28px; }
+.zijbalk-mappen .lege-mappen { margin:6px 0; font-size:12px; }
+.zijbalk .bibliotheek-lijst { flex:1 1 auto; min-height:240px; overflow-y:auto; gap:6px; margin:0; padding:0 3px 2px 0; }
+.zijbalk .bibliotheek-item { flex:0 0 auto; padding:8px; min-height:76px;
+  grid-template-columns:34px minmax(0,1fr) 26px; gap:4px 8px; border-radius:10px; }
+.zijbalk .bibliotheek-item .bibliotheek-kunst { width:34px; height:34px; }
+.zijbalk .bibliotheek-naam strong { font-size:12px; line-height:1.3; }
+.zijbalk .bibliotheek-naam small { font-size:10px; }
+.zijbalk .bibliotheek-speelacties { gap:6px; }
+.zijbalk .bibliotheek-speelacties .lijst-previewknop,
+.zijbalk .bibliotheek-speelacties .lijst-uitzendknop { min-height:29px; height:29px; min-width:74px; padding:0 9px; font-size:11px; }
+@media(min-width:1151px) {
+  .zijbalk { height:calc(100dvh - 32px); max-height:calc(100dvh - 32px); }
+}
+@media(max-width:1150px) {
+  .zijbalk { height:auto; max-height:none; }
+  .zijbalk .bibliotheek-lijst { flex:none; max-height:62dvh; min-height:240px; overflow-y:auto; }
+}
+@media(min-width:1151px) and (max-height:780px) {
+  .zijbalk { height:auto; max-height:none; position:static; }
+  .zijbalk .bibliotheek-lijst { flex:none; max-height:52dvh; }
+}
+@media(max-width:540px) {
+  .app-verbinding-melding { align-items:flex-start; flex-direction:column; }
+  .zijbalk .bibliotheek-speelacties .lijst-previewknop,
+  .zijbalk .bibliotheek-speelacties .lijst-uitzendknop { flex:none; }
+}
+
+/* Zoekveld en sortering delen één rij; de lijst krijgt de vrijgekomen hoogte. */
+.mappen-werkbalk { display:grid; grid-template-columns:minmax(0,1fr) 115px; gap:7px; margin-bottom:5px; }
+.mappen-werkbalk .zoekveld { margin:0; min-width:0; }
+.zijbalk .mappen-werkbalk .zijbalk-sorteren { display:block; padding:0; }
+.mappen-werkbalk select { width:100% !important; max-width:100%; font-size:11px; }
+.mappen-sorteerlabel { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+/* Beta 4.15: proefstem, los van de bestaande effectcatalogus. */
+
+/* Beta 4.16: compacte stemcontrole, zonder de bibliotheek of speler te wijzigen. */
+.stembeheer-acties { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+.stem-bufferkeuze { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:13px; margin:12px 0 6px; }
+.stem-bufferkeuze select { max-width:100%; min-width:0; }
+.stem-meetwaarden { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:8px; margin:12px 0; }
+.stem-meetwaarden div { border:1px solid var(--rand,#39414b); border-radius:7px; padding:8px; }
+.stem-meetwaarden dt { font-size:11px; opacity:.8; }
+.stem-meetwaarden dd { margin:4px 0 0; font-size:14px; font-weight:600; }
+.stem-pakketinfo { font-size:12px; padding:8px 0; }
+.stem-pakketinfo summary { cursor:pointer; }
+#stem-computertest-resultaat[data-oordeel="te_langzaam"], #stem-computertest-resultaat[data-oordeel="geen_audio"] { color:#f0bf8b; }
+@media(max-width:480px) { .stem-bufferkeuze { align-items:stretch; flex-direction:column; } }
+
+/* Beta 4.17: alle stemmen in dezelfde keuze, details pas op verzoek. */
+.stemprofiel-kaart small {display:block;font-size:10px;line-height:1.3;opacity:.78;font-weight:400;}
+.stemprofiel-kaart[data-motor="llvc"] {border-style:dashed;}
+.stemprofiel-kaart[aria-pressed="true"] {border-style:solid;}
+.stem-demo-kop {flex-wrap:wrap;}
+.stemprofiel-kaart {min-width:0;overflow-wrap:anywhere;}
+.stemintensiteit-paneel[hidden] {display:none!important;}
+
+.stemkeuze-balk {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 12px;}
+
+/* Beta 4.18: zichtbare tussenstand, ook met minder beweging ingeschakeld. */
+.bedieningsstatus { min-height: 1.5em; margin: 4px 0 8px; color: var(--secundair); font-size: .85rem; }
+.is-laden::after { content: ''; display: inline-block; width: 12px; height: 12px;
+  margin-left: 7px; border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; vertical-align: -2px; animation: drost-laden .75s linear infinite; }
+.knop.is-laden { cursor: progress; }
+.schakelaar.is-laden { border-color: var(--accent, #79cfc1); opacity: 1; cursor: progress; }
+.schakelaar.is-laden i { opacity: .25; }
+.schakelaar.is-laden::after { position: absolute; top: 4px; left: 13px; margin: 0; }
+.stemprofiel-kaart.is-laden { position: relative; outline: 2px solid var(--accent, #79cfc1); outline-offset: -2px; }
+.stemprofiel-kaart.is-laden::after { position: absolute; top: 7px; right: 7px; margin: 0; }
+#effecten-schakelstatus { display: block; color: var(--secundair); font-size: 11px; line-height: 1.4; margin-top: 4px; }
+[data-fout="true"].bedieningsstatus, #stem-demo-status[data-fout="true"], #effecten-schakelstatus[data-fout="true"] { color: var(--gevaar, #f2aaa3); }
+.stem-demo-kop { flex-wrap: wrap; }
+@keyframes drost-laden { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .is-laden::after { animation: none; border-style: dotted; } }
+
+/* Releasekandidaat: afsluiten als aparte actie, niet tussen de paginalinks. */
+.knop.knop-afsluiten {
+  color: #ffb6ba; background: #352126; border: 1px solid #8c454f;
+  white-space: nowrap;
+}
+.knop.knop-afsluiten:hover:not(:disabled) { color: #ffe5e7; background: #542a32; border-color: #be6670; }
+.knop.knop-afsluiten:focus-visible { outline: 2px solid #ffb6ba; outline-offset: 3px; }
+.knop.knop-afsluiten:disabled { opacity: .6; cursor: wait; }
+.instellingen-ondersteuning {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-top: 20px; padding: 16px 0; border-top: 1px solid var(--rand);
+}
+.instellingen-ondersteuning h2 { font-size: 15px; margin: 0 0 6px; }
+.instellingen-ondersteuning p { margin: 0; color: var(--secundair); font-size: 13px; line-height: 1.5; }
+.stemdiagnose-dialoog { width: min(650px, calc(100vw - 24px)); }
+.stemdiagnose-inhoud { padding: 4px 0; }
+.stemdiagnose-inhoud p { font-size: 13px; line-height: 1.5; margin: 12px 0; }
+.stemdiagnose-inhoud small { display: block; font-size: 12px; line-height: 1.5; opacity: .85; }
+.stemdiagnose-inhoud[data-fout="true"] #natuurlijke-stem-status { color: #ffb6ba; }
+@media (max-width: 600px) {
+  .instellingen-ondersteuning { align-items: flex-start; flex-direction: column; }
+  .stemdiagnose-dialoog .stem-meetwaarden { grid-template-columns: 1fr; }
+}
+@media (max-width: 1180px) {
+  .bovenbalk { height: auto; min-height: 80px; flex-wrap: wrap; gap: 12px; padding: 14px 0; }
+  .bovenbalk-rechts { width: 100%; min-width: 0; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+  .bovenbalk-rechts .hoofdnavigatie { flex-wrap: wrap; }
+  .bovenbalk-rechts .status-chip { margin-left: auto; }
+}
+
+/* RC2: dashboardindelingen. Klassiek houdt bewust de originele posities. */
+.audio-speler-groep {display:contents;}
+.dashboard-indeling-instellingen {padding:22px 26px;margin-bottom:20px;}
+.dashboard-indeling-instellingen .instellingen-sectiekop {margin:0 0 15px;}
+.dashboard-indeling-keuzes {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.dashboard-indeling-keuze {display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0;text-align:left;
+  padding:12px;border:1px solid var(--rand);border-radius:12px;background:var(--paneel-hoog);color:var(--tekst);}
+.dashboard-indeling-keuze strong {font-size:14px;}
+.dashboard-indeling-keuze small {font-size:11px;color:var(--secundair);}
+.dashboard-indeling-keuze:hover {border-color:var(--accent);}
+.dashboard-indeling-keuze[aria-pressed="true"] {border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);
+  background:color-mix(in srgb,var(--accent) 9%,var(--paneel-hoog));}
+.dashboard-indeling-keuze:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
+.dashboard-indeling-keuze:disabled {opacity:.7;cursor:wait;}
+.dashboard-indeling-schets {display:grid;gap:5px;grid-template-columns:1.5fr 1fr;
+  grid-template-rows:1fr .75fr .85fr;grid-template-areas:'a l' 'p l' 'f l';height:96px;padding:9px;
+  border:1px solid var(--rand);border-radius:9px;background:var(--achtergrond);}
+.dashboard-indeling-schets i {display:block;border-radius:5px;border:1px solid var(--rand);
+  background:color-mix(in srgb,var(--paneel-hoog) 70%,var(--accent));}
+.dashboard-indeling-schets i:nth-child(1){grid-area:a;}
+.dashboard-indeling-schets i:nth-child(2){grid-area:p;}
+.dashboard-indeling-schets i:nth-child(3){grid-area:f;}
+.dashboard-indeling-schets i:nth-child(4){grid-area:l;background:color-mix(in srgb,var(--accent) 23%,var(--paneel));}
+.dashboard-indeling-schets.indeling-bibliotheek {grid-template-columns:.75fr 1.4fr;grid-template-areas:'a l' 'p l' 'f f';}
+.dashboard-indeling-schets.indeling-favorieten {grid-template-columns:1.6fr 1fr;grid-template-areas:'f a' 'f p' 'l l';}
+.dashboard-indeling-voet {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;
+  border-top:1px solid var(--rand);padding-top:13px;}
+#dashboard-indeling-status {font-size:12px;color:var(--accent);line-height:1.4;}
+#dashboard-indeling-status[data-fout="true"] {color:#ffb6ba;}
+
+/* Snelle filters zijn alleen in de twee nieuwe dashboardindelingen zichtbaar. */
+.dashboard-snel-filter {display:flex;align-items:center;gap:7px;padding:4px 0 10px;overflow-x:auto;max-width:100%;scrollbar-width:thin;}
+.dashboard-snel-filter[hidden]{display:none!important;}
+.dashboard-filterknop {flex:0 0 auto;padding:6px 11px;border:1px solid var(--rand);border-radius:19px;
+  background:var(--paneel-hoog);color:var(--tekst);font-size:11px;}
+.dashboard-filterknop:hover {border-color:var(--accent);}
+.dashboard-filterknop[aria-pressed="true"] {color:var(--accent-tekst);background:var(--accent);border-color:var(--accent);font-weight:750;}
+
+/* Bibliotheek centraal: twee heldere kolommen, favorieten daaronder. */
+html[data-dashboardindeling="bibliotheek"] #dashboard.indeling {
+  grid-template-columns:minmax(340px,.84fr) minmax(0,1.48fr);
+  grid-template-areas:'audiogroep afspeelbibliotheek' 'favorieten favorieten';
+  gap:16px;align-items:start;
+}
+html[data-dashboardindeling="bibliotheek"] #dashboard .hoofdkolom,
+html[data-dashboardindeling="favorieten"] #dashboard .hoofdkolom {display:contents;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .audio-speler-groep,
+html[data-dashboardindeling="favorieten"] #dashboard .audio-speler-groep {
+  display:flex;flex-direction:column;gap:15px;min-width:0;align-self:start;
+}
+html[data-dashboardindeling="bibliotheek"] #dashboard .audio-speler-groep {grid-area:audiogroep;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk {grid-area:afspeelbibliotheek;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .favorieten-sectie {grid-area:favorieten;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .recent-sectie,
+html[data-dashboardindeling="favorieten"] #dashboard .recent-sectie {display:none!important;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .hoofdpaneel,
+html[data-dashboardindeling="favorieten"] #dashboard .hoofdpaneel {padding:19px 19px 15px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .paneelkop,
+html[data-dashboardindeling="favorieten"] #dashboard .paneelkop {margin-bottom:14px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .instellingen-rij,
+html[data-dashboardindeling="favorieten"] #dashboard .instellingen-rij {gap:12px;margin-top:14px;padding-top:15px;grid-template-columns:repeat(2,minmax(0,1fr));}
+html[data-dashboardindeling="bibliotheek"] #dashboard .eigen-stem-bediening,
+html[data-dashboardindeling="favorieten"] #dashboard .eigen-stem-bediening,
+html[data-dashboardindeling="bibliotheek"] #dashboard .uitvoer-selectie,
+html[data-dashboardindeling="favorieten"] #dashboard .uitvoer-selectie {display:none;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .meters,
+html[data-dashboardindeling="favorieten"] #dashboard .meters {gap:10px;margin-top:17px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .snel-stem,
+html[data-dashboardindeling="favorieten"] #dashboard .snel-stem {padding:10px 11px;margin-top:12px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .snel-stem-acties,
+html[data-dashboardindeling="favorieten"] #dashboard .snel-stem-acties {grid-template-columns:minmax(0,1fr) auto auto;gap:5px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .snel-stem-acties .knop,
+html[data-dashboardindeling="favorieten"] #dashboard .snel-stem-acties .knop {padding:7px 8px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .technische-status,
+html[data-dashboardindeling="favorieten"] #dashboard .technische-status {margin-top:14px;padding-top:11px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .nu-actief,
+html[data-dashboardindeling="favorieten"] #dashboard .nu-actief {grid-template-columns:minmax(90px,25%) minmax(0,1fr);min-height:192px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .player-beeld,
+html[data-dashboardindeling="favorieten"] #dashboard .player-beeld,
+html[data-dashboardindeling="bibliotheek"] #dashboard .player-placeholder,
+html[data-dashboardindeling="favorieten"] #dashboard .player-placeholder {min-height:192px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .player-details,
+html[data-dashboardindeling="favorieten"] #dashboard .player-details {padding:14px 15px 12px;gap:9px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .player-details h2,
+html[data-dashboardindeling="favorieten"] #dashboard .player-details h2 {font-size:20px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .player-volume-regelaar,
+html[data-dashboardindeling="favorieten"] #dashboard .player-volume-regelaar {width:34%;min-width:120px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .player-knoppen .knop,
+html[data-dashboardindeling="favorieten"] #dashboard .player-knoppen .knop {font-size:11px;min-height:32px;padding:6px 9px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk,
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk {position:static;min-height:0;max-height:none;height:690px;align-self:stretch;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-lijst,
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;
+  gap:8px;min-height:0;max-height:none;flex:1 1 auto;overflow-y:auto;
+}
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-item,
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-item {
+  min-height:84px;grid-template-columns:34px minmax(0,1fr) 26px;
+  grid-template-rows:auto auto;padding:9px;gap:5px 7px;
+}
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-speelacties,
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-speelacties {gap:6px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-lijst .bibliotheek-item .lijst-previewknop,
+html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-lijst .bibliotheek-item .lijst-uitzendknop,
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst .bibliotheek-item .lijst-previewknop,
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst .bibliotheek-item .lijst-uitzendknop {min-width:75px;height:28px;min-height:28px;padding:0 8px;font-size:11px;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .favorieten-sectie,
+html[data-dashboardindeling="favorieten"] #dashboard .favorieten-sectie {padding:16px;border:1px solid var(--rand);border-radius:18px;background:var(--paneel);}
+html[data-dashboardindeling="bibliotheek"] #dashboard .favoriet {min-height:130px;}
+
+/* Favorieten eerst: 15 knoppen linksboven, audio en speler rechts, bibliotheek breed eronder. */
+html[data-dashboardindeling="favorieten"] #dashboard.indeling {
+  grid-template-columns:minmax(0,1.5fr) minmax(350px,.92fr);
+  grid-template-areas:'favorieten audiogroep' 'afspeelbibliotheek afspeelbibliotheek';
+  gap:16px;align-items:start;
+}
+html[data-dashboardindeling="favorieten"] #dashboard .favorieten-sectie {grid-area:favorieten;}
+html[data-dashboardindeling="favorieten"] #dashboard .audio-speler-groep {grid-area:audiogroep;}
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk {grid-area:afspeelbibliotheek;height:510px;}
+html[data-dashboardindeling="favorieten"] #dashboard .favorieten-raster {grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+html[data-dashboardindeling="favorieten"] #dashboard .favoriet {min-height:140px;}
+html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst {grid-template-columns:repeat(3,minmax(0,1fr));}
+
+/* Geen extra scherm voor de kleinere audiovoorkeuren: bestaande bediening blijft beschikbaar. */
+.dashboard-audio-meer {display:none;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .dashboard-audio-meer,
+html[data-dashboardindeling="favorieten"] #dashboard .dashboard-audio-meer {display:inline-flex;margin:11px 0 0;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .hoofdpaneel[data-audio-extra="open"] .eigen-stem-bediening,
+html[data-dashboardindeling="favorieten"] #dashboard .hoofdpaneel[data-audio-extra="open"] .eigen-stem-bediening {display:flex;grid-column:1/-1;}
+html[data-dashboardindeling="bibliotheek"] #dashboard .hoofdpaneel[data-audio-extra="open"] .uitvoer-selectie,
+html[data-dashboardindeling="favorieten"] #dashboard .hoofdpaneel[data-audio-extra="open"] .uitvoer-selectie {display:flex;}
+
+/* Kleine uitbreidingen op het bestaande volledige Weergavevenster. */
+.thema-accent-voorbeelden {min-width:0;}
+.thema-accent-voorbeelden .veldlabel {display:block;margin-bottom:7px;}
+.thema-accentpresets {display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.thema-accentpreset {position:relative;width:29px;height:29px;flex:0 0 29px;border-radius:50%;
+  border:2px solid var(--rand);background:var(--presetkleur);}
+.thema-accentpreset:hover {transform:scale(1.09);}
+.thema-accentpreset[aria-pressed="true"] {outline:2px solid var(--accent);outline-offset:2px;}
+.thema-accentpreset:focus-visible {outline:2px solid #fff;outline-offset:3px;}
+.thema-opmaak-extra {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin-top:15px;}
+body[data-tekstgrootte="groot"] .bibliotheek-naam strong,
+body[data-tekstgrootte="groot"] .favoriet-naam {font-size:14px!important;}
+body[data-tekstgrootte="groot"] .bibliotheek-naam small,
+body[data-tekstgrootte="groot"] .favoriet-type {font-size:12px!important;}
+body[data-kaarthoeken="strak"] .paneel,
+body[data-kaarthoeken="strak"] .favoriet,
+body[data-kaarthoeken="strak"] .bibliotheek-item,
+body[data-kaarthoeken="strak"] .dashboard-indeling-instellingen {border-radius:7px;}
+
+@media(max-width:1260px) {
+  html[data-dashboardindeling="bibliotheek"] #dashboard.indeling {grid-template-columns:minmax(300px,.84fr) minmax(0,1.4fr);}
+  html[data-dashboardindeling="favorieten"] #dashboard.indeling {grid-template-columns:minmax(0,1.2fr) minmax(330px,.9fr);}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-lijst {grid-template-columns:1fr;}
+  html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst {grid-template-columns:repeat(2,minmax(0,1fr));}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .bediening-boven,
+  html[data-dashboardindeling="favorieten"] #dashboard .bediening-boven {grid-template-columns:minmax(0,1fr) auto auto;}
+}
+@media(max-width:930px) {
+  html[data-dashboardindeling="bibliotheek"] #dashboard.indeling,
+  html[data-dashboardindeling="favorieten"] #dashboard.indeling {grid-template-columns:minmax(0,1fr);}
+  html[data-dashboardindeling="bibliotheek"] #dashboard.indeling {grid-template-areas:'audiogroep' 'afspeelbibliotheek' 'favorieten';}
+  html[data-dashboardindeling="favorieten"] #dashboard.indeling {grid-template-areas:'favorieten' 'audiogroep' 'afspeelbibliotheek';}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk,
+  html[data-dashboardindeling="favorieten"] #dashboard .zijbalk {height:auto;max-height:none;}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-lijst,
+  html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst {max-height:540px;min-height:230px;grid-template-columns:repeat(2,minmax(0,1fr));}
+  html[data-dashboardindeling="favorieten"] #dashboard .favorieten-raster {grid-template-columns:repeat(5,minmax(0,1fr));}
+  .dashboard-indeling-keuzes {grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+@media(max-width:600px) {
+  .dashboard-indeling-instellingen {padding:16px;}
+  .dashboard-indeling-keuzes {grid-template-columns:1fr;}
+  .dashboard-indeling-keuze {display:grid;grid-template-columns:115px 1fr;gap:3px 12px;align-items:center;min-height:116px;}
+  .dashboard-indeling-keuze .dashboard-indeling-schets {grid-row:1 / 3;height:90px;}
+  .dashboard-indeling-voet {flex-wrap:wrap;}
+  .thema-opmaak-extra {grid-template-columns:1fr;}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk .bibliotheek-lijst,
+  html[data-dashboardindeling="favorieten"] #dashboard .zijbalk .bibliotheek-lijst {grid-template-columns:1fr;}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .nu-actief,
+  html[data-dashboardindeling="favorieten"] #dashboard .nu-actief {grid-template-columns:1fr;}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .player-beeld,
+  html[data-dashboardindeling="favorieten"] #dashboard .player-beeld {min-height:135px;max-height:160px;}
+  html[data-dashboardindeling="favorieten"] #dashboard .favorieten-raster {grid-template-columns:repeat(2,minmax(0,1fr));}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .bediening-boven,
+  html[data-dashboardindeling="favorieten"] #dashboard .bediening-boven {grid-template-columns:1fr 1fr;}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .keuze-apparaat,
+  html[data-dashboardindeling="favorieten"] #dashboard .keuze-apparaat {grid-column:1 / -1;}
+  html[data-dashboardindeling="bibliotheek"] #dashboard .meters,
+  html[data-dashboardindeling="favorieten"] #dashboard .meters {grid-template-columns:1fr;}
+}
+
+.thema-stijlpresets {margin-top:16px;}
+.thema-stijlpresets .veldlabel {display:block;margin-bottom:8px;}
+.thema-stijlpresets-knoppen {display:flex;gap:8px;flex-wrap:wrap;}
+/* Geen losse stijlwissels. Basis- en kleurinstellingen blijven apart aanpasbaar. */
+.thema-stijl-vast {display:inline-block; margin-top:8px; padding:6px 12px;
+  font-size:12px; font-weight:650; color:var(--accent); border:1px solid var(--rand);
+  border-radius:9px; background:var(--paneel-hoog);}
+
+@media(min-width:931px){
+  html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk {height:885px;min-height:0;}
+}

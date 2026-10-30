@@ -47,3 +47,31 @@ Thumbs.db
 # Deze drie zelf gegenereerde testtonen mogen wel in de repository.
 !voorbeelden/
 !voorbeelden/*.wav
+
+# De meegeleverde stemvoorbeelden van Bob en Elise horen WEL in Git en in de Setup.
+# Alleen deze map is uitgezonderd van de algemene regel voor MP3-bestanden.
+# Controleer voor publieke verspreiding of je de rechten op de opnames hebt.
+!app/audio/stemvoorbeelden/
+!app/audio/stemvoorbeelden/*.mp3
+
+# Lokaal gebouwde stemworker, modellen en runtime horen niet in publieke Git-commits.
+stem-runtime/
+app/audio/native/win-x64/
+*.pth
+*.pt
+*.onnx
+*.safetensors
+*.dll
+*.exe
+*.nupkg
+*.msi
+*.pdb
+.drost-release.lock
+# Uitgevoerde releasebouw heeft een eigen deelmap, nooit broncode.
+Delen-*/
+# Bevatten mogelijk lokale auth-configuratie en machinegebonden data.
+*.token
+*.secrets
+*.secrets.*
+# Geen ZIP-archieven direct in Git, alleen als Release-bijlage.
+*.zip

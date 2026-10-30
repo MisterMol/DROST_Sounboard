@@ -129,7 +129,7 @@ class TestWindowsStandaardapparaten(unittest.TestCase):
         js = Path(__file__).resolve().parent / 'hulpmiddelen' / 'test_standaardapparaten_beta3.js'
         resultaat = subprocess.run([node, str(js)], capture_output=True, text=True, timeout=12)
         self.assertEqual(resultaat.returncode, 0, resultaat.stdout + resultaat.stderr)
-        self.assertIn('vier apparaatkeuze', resultaat.stdout)
+        self.assertIn('zes apparaatkeuze', resultaat.stdout)
 
     def test_dashboard_gebruikt_neutrale_strings_zonder_dubbele_status(self):
         pad = Path(__file__).resolve().parents[1] / 'app' / 'webinterface' / 'statisch'
@@ -139,7 +139,11 @@ class TestWindowsStandaardapparaten(unittest.TestCase):
         self.assertNotIn('element("badge-status")', js)
         self.assertNotIn('Razer als beschikbaar', html + js)
         self.assertNotIn('includes("razer")', js)
-        self.assertNotIn('Discord', html + js)
+        # Mapnamen mogen Discord bevatten; de apparaatkeuze mag dat niet afdwingen.
+        begin = js.index('async function laadApparaten() {')
+        apparaatscode = js[begin:].split('\n}\n', 1)[0]
+        self.assertIn('antwoord.standaard_microfoonnummer', apparaatscode)
+        self.assertNotIn('Discord', apparaatscode)
         self.assertNotIn('WhatsApp', html + js)
         self.assertNotIn('Naar call', html + js)
         self.assertIn('standaard_microfoonnummer', js)

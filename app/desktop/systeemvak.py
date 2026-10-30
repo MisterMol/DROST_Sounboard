@@ -9,16 +9,17 @@ if TYPE_CHECKING:
 
 
 def maak_eenvoudig_soundboard_pictogram(verbonden: bool = False):
-    """Teken de tray-icoon lokaal; er zijn geen externe afbeeldingen nodig."""
-    from PIL import Image, ImageDraw
-    afbeelding = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
-    tekenaar = ImageDraw.Draw(afbeelding)
-    tekenaar.rounded_rectangle((4, 4, 60, 60), radius=18, fill=(20, 29, 38, 255))
-    kleur = (105, 207, 178, 255) if verbonden else (144, 161, 173, 255)
-    # Minimalistische golfvorm die in het Windows-systeemvak leesbaar blijft.
-    for x, hoogte in ((17, 13), (26, 25), (35, 34), (44, 20)):
-        tekenaar.rounded_rectangle((x, 32 - hoogte // 2, x + 5, 32 + hoogte // 2), radius=2, fill=kleur)
-    return afbeelding
+    """Het systeemvak gebruikt dezelfde logoafbeelding als de webinterface.
+
+    De parameter verbonden blijft voor bestaande aanroepen beschikbaar. Het
+    merklogo verandert niet bij het verbinden of verbreken van de microfoon.
+    """
+    from pathlib import Path
+    from PIL import Image
+
+    pad = Path(__file__).resolve().parents[1] / 'webinterface' / 'statisch' / 'drost-logo.png'
+    with Image.open(pad) as afbeelding:
+        return afbeelding.convert('RGBA').resize((64, 64), Image.Resampling.LANCZOS)
 
 
 def maak_systeemvakicoon(bediening: 'WebbedieningVanDrostSoundboard',
@@ -89,7 +90,7 @@ def maak_systeemvakicoon(bediening: 'WebbedieningVanDrostSoundboard',
         # Niet alleen browser sluiten: de eigenlijke applicatie stopt hier,
         # en ruimt vervolgens zowel VB-CABLE als de sneltoetsregistraties op.
         vraag_afsluiten()
-        _icoon.stop()
+        # De centrale desktoplus stopt het icoon en ruimt alle apponderdelen op.
 
     menu = pystray.Menu(
         pystray.MenuItem('Dashboard openen', open_dashboard, default=True),

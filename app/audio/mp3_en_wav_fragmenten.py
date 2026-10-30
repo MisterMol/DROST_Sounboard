@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
+from app.audio.geluidsnormalisatie import normaliseer_fragment_in_geheugen, controleer_normalisatiestand
 from app.audio.geluidsbestanden import (
     AANTAL_UITVOERKANALEN,
     GeluidsbestandOngeldigFout,
@@ -76,12 +77,14 @@ def lees_en_bereid_mp3_of_wav_voor(
     beginpositie_seconden: float = 0.0,
     ingesteld_volume: float = STANDAARD_GELUIDSVOLUME,
     maximale_duur_seconden: float = MAXIMALE_GELUIDSDUUR_IN_SECONDEN,
+    normalisatiestand: str = 'uit',
 ) -> VoorbereidGeluidsfragment:
     """Decodeer hooguit de ingestelde 120 seconden naar 48 kHz stereo met kwalitatief goede resampling.
 
     Alleen deze voorbereidende functie gebruikt soundfile en soxr. De callback
     blijft daardoor realtime en onafhankelijk van bestandsformaten.
     """
+    controleer_normalisatiestand(normalisatiestand)
     gekozen_pad = controleer_of_geluidsbestand_gebruikt_mag_worden(bestandspad)
     startpunt, volume = _controleer_beginpositie_en_volume(beginpositie_seconden, ingesteld_volume)
     # Het maximale fragment is instelbaar per geluid, maar nooit meer dan twee minuten.
@@ -142,7 +145,12 @@ def lees_en_bereid_mp3_of_wav_voor(
         samples[:fadeframes] *= stijgen[:, None]
         samples[-fadeframes:] *= stijgen[::-1, None]
 
+    # Eerst het eigen volume toepassen en eventuele samplepieken beschermen.
+    # Daarna pas normaliseren: anders kan bijvoorbeeld een fragment op 200%
+    # de berekende correctie direct weer ongedaan maken.
+    # Bij stand Uit is de uitgaande audio byte-voor-byte gelijk aan Beta 4.
     versterk_samples_zonder_digitaal_te_oversturen(samples, volume)
+    normalisatiefactor = normaliseer_fragment_in_geheugen(samples, normalisatiestand) if volume > 0 else 1.0
     uitvoer = samples.astype("<f4", copy=False).tobytes()
     return VoorbereidGeluidsfragment(
         naam_van_het_geluid=gekozen_pad.stem,
@@ -156,6 +164,8 @@ def lees_en_bereid_mp3_of_wav_voor(
         fragment_begint_bij_seconden=startpunt,
         bronduur_in_seconden=bronduur,
         fragment_ingekort=beginframe + aantal_te_lezen_frames < totale_frames,
+        normalisatiestand=normalisatiestand,
+        normalisatiefactor=normalisatiefactor,
     )
 
 

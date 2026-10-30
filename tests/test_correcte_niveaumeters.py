@@ -4,6 +4,7 @@ De audiomotor draait hier niet. We testen de rekenkundige betekenis van
 RMS, de afzonderlijke piekwaarde en de CSS-schaal van het dashboard.
 """
 from pathlib import Path
+import os
 import subprocess
 import unittest
 
@@ -50,7 +51,8 @@ class TestJuisteDecibelSchaal(unittest.TestCase):
                     f"{snippet}; console.log(meterPercentage({inhoud}))")
             try:
                 process = subprocess.run(["node", "-e", code], check=True,
-                    capture_output=True, text=True)
+                    capture_output=True, text=True,
+                    env={**os.environ, "FORCE_COLOR": "0"})
             except FileNotFoundError:
                 self.skipTest("Node niet geinstalleerd: alle andere metertests werken zonder Node")
             self.assertAlmostEqual(float(process.stdout.strip()), verwacht, places=4)

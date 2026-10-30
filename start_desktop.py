@@ -12,6 +12,7 @@ import sys
 import threading
 import webbrowser
 
+from app.desktop.afsluitbeheer import sluit_onderdelen_af, sluit_webserver_af
 from app.desktop.een_actieve_instantie import EenActieveInstantie
 from app.desktop.release_updates import ReleaseUpdateService, initialiseer_velopack_bij_start
 from app.diagnostiek.logboek import (maak_logboeken_klaar, sluit_logboeken_netjes_af,
@@ -44,6 +45,7 @@ def start_drostsoundboard_als_desktopprogramma(*, open_browser: bool = True) -> 
     sneltoetsen = None
     serverdraad = None
     server_gestart = False
+    icoon = None
     afsluiten_gevraagd = threading.Event()
     update_service = ReleaseUpdateService()
     normaal_afgesloten = False
@@ -76,6 +78,7 @@ def start_drostsoundboard_als_desktopprogramma(*, open_browser: bool = True) -> 
             # dat twee DrostSoundboards nooit beide een audiomixer openen.
             server = LokaleWebserverVanDrostSoundboard(('127.0.0.1', 0), bediening)
         server.sneltoetsbediening = sneltoetsen
+        server.afsluitverzoek = afsluiten_gevraagd
         instantie.schrijf_lokaal_dashboardadres(server.server_port)
         adres = f'http://127.0.0.1:{server.server_port}/'
         serverdraad = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.2},
@@ -98,7 +101,16 @@ def start_drostsoundboard_als_desktopprogramma(*, open_browser: bool = True) -> 
             webbrowser.open(adres, new=2)
         # pystray.run() verzorgt het Windows-systeemvak. De HTTP-server leeft
         # op een andere draad en stopt niet wanneer het tabblad wordt gesloten.
-        icoon.run()
+        def verzorg_systeemvak(klaar_icoon):
+            # pystray roept setup pas aan zodra de Windows-berichtenlus draait.
+            # Ook een vroeg afsluitverzoek vanuit de browser blijft zo bewaard.
+            try:
+                klaar_icoon.visible = True
+                afsluiten_gevraagd.wait()
+            finally:
+                klaar_icoon.stop()
+
+        icoon.run(setup=verzorg_systeemvak)
         normaal_afgesloten = True
         afsluiten_gevraagd.set()
         return 0
@@ -116,38 +128,36 @@ def start_drostsoundboard_als_desktopprogramma(*, open_browser: bool = True) -> 
             print(f'DESKTOP-999: {type(fout).__name__}: {fout}')
         return 1
     finally:
-        update_service.stop()
-        # In deze volgorde zodat geen sneltoets of HTTP-verzoek een decoder kan
-        # starten terwijl we de audioverbinding afsluiten.
-        audio_netjes_afgesloten = True
+        afsluiten_gevraagd.set()
+        logger = logboeken.softwarelogboek if logboeken is not None else None
+        if server is not None:
+            server.wordt_afgesloten.set()
+        # Iedere stap wordt geprobeerd, ook als de vorige faalt. Een False van
+        # sluit_alle_audio_af is geen geslaagde afsluiting.
+        stappen = [('updatecontrole', update_service.stop)]
+        if icoon is not None:
+            stappen.append(('systeemvak', icoon.stop))
+        if sneltoetsen is not None:
+            stappen.append(('sneltoetsen', sneltoetsen.stop))
+        stappen.append(('lokale webserver',
+                        lambda: sluit_webserver_af(server, serverdraad, server_gestart)))
+        if bediening is not None:
+            stappen.append(('audio en stemverwerking', bediening.sluit_alle_audio_af))
+        netjes = sluit_onderdelen_af(logger, stappen)
         try:
-            if sneltoetsen is not None:
-                sneltoetsen.stop()
-            if server is not None:
-                if server_gestart:
-                    server.shutdown()
-                    if serverdraad is not None:
-                        serverdraad.join(timeout=6)
-                        if serverdraad.is_alive():
-                            raise TimeoutError('De lokale webserver is niet netjes afgesloten.')
-                server.server_close()
-            if bediening is not None:
-                bediening.sluit_alle_audio_af()
-        except Exception:
-            audio_netjes_afgesloten = False
             if logboeken is not None:
-                logboeken.softwarelogboek.exception('Desktopafsluiting is niet volledig gelukt', extra={
-                    'gebeurtenis': 'desktop_afsluiten_mislukt', 'gegevens': {'foutcode': 'DESKTOP-998'},
-                })
+                netjes = sluit_onderdelen_af(logger, [
+                    ('afsluitregistratie', lambda: schrijf_auditgebeurtenis(
+                        logboeken.auditlogboek, 'desktopproces_afgesloten', {'volledig': netjes})),
+                    ('logboeken', lambda: sluit_logboeken_netjes_af(logboeken)),
+                ]) and netjes
         finally:
-            if logboeken is not None:
-                schrijf_auditgebeurtenis(logboeken.auditlogboek, 'desktopproces_afgesloten')
-                sluit_logboeken_netjes_af(logboeken)
+            # De mutex blijft vast tot alle eigen onderdelen aan bod zijn geweest.
             instantie.laat_vergrendeling_los()
-            # Wacht pas op het afsluiten van ons proces wanneer alle streams,
-            # server, logboeken en mutex zijn vrijgegeven.
-            if normaal_afgesloten and audio_netjes_afgesloten:
-                update_service.pas_toe_na_audio_stop()
+        if normaal_afgesloten and netjes:
+            update_service.pas_toe_na_audio_stop()
+        if not netjes:
+            return 1
 
 
 def geef_startargumenten(argv=None):

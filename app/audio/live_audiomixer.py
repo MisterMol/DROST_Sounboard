@@ -30,6 +30,9 @@ from app.audio.automatisch_audioherstel import (
 from app.audio.windows_com_context import houd_com_beschikbaar_tijdens_audioverbinding
 from app.audio.geluid_afspelen import controleer_of_de_uitvoer_echt_de_gewone_vb_cable_is
 from app.audio.signaaldiagnose import meet_rms_en_piek_van_een_audioblok
+from app.audio.pieklimiter import PiekLimiter, PIEKPLAFOND
+from app.audio.stemvervorming import Stemvervormer, controleer_stemprofiel, controleer_stemintensiteit, STANDAARD_INTENSITEITEN
+from app.audio.stemparameters import standaard_parameters, controleer_parameters
 from app.audio.geschiedenis_van_audioniveaus import GeschiedenisVanAudioniveaus
 from app.audio.geluidsbestanden import (
     SAMPLEFREQUENTIE_VAN_DE_UITVOER,
@@ -39,7 +42,7 @@ from app.diagnostiek.logboek import schrijf_auditgebeurtenis
 
 
 MICROFOONVOLUME = 0.8
-MAXIMALE_PIEKWAARDE = 0.98
+MAXIMALE_PIEKWAARDE = PIEKPLAFOND
 MAXIMALE_AANTAL_OPDRACHTEN_PER_AUDIOBLOK = 8
 AANTAL_CALLBACKS_TUSSEN_SIGNAALMETINGEN = 1
 MAXIMALE_TIJD_ZONDER_AUDIO_CALLBACK_IN_SECONDEN = 3.0
@@ -75,6 +78,20 @@ class StatusVanDeLiveVerbinding:
     afspeelbeurt_id: str | None = None
     afgespeelde_seconden: float = 0.0
     beginpositie_seconden: float = 0.0
+    live_herhalen: bool = False
+    live_basisvolume: float | None = None
+    positie_wijzigingsnummer: int = 0
+    limiter_aan: bool = True
+    limiter_reductie_db: float = 0.0
+    limiter_terugvallen: int = 0
+    stemprofiel: str = "normaal"
+    stemvervorming_terugvallen: int = 0
+    stemvervorming_geblokkeerd: bool = False
+    stem_rms: float = 0.0
+    stem_piek: float = 0.0
+    effect_actief: bool = False
+    effect_rms_voor: float = 0.0
+    effect_rms_na: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -95,6 +112,20 @@ class _LopendGeluidsfragment:
     huidige_framepositie: int = 0
     gestart_op: float = 0.0
     geluid_id: str | None = None
+    herhalen: bool = False
+    positie_wijzigingsnummer: int = 0
+    fade_in_frames: int = 0
+    # None houdt het oude contract voor reeds versterkte fragmenten intact.
+    basisvolume: float | None = None
+    vorige_basisvolume_factor: float = 1.0
+
+
+def _meet_effect_rms_zonder_audio_te_onderbreken(blok: np.ndarray) -> float:
+    """Een defect meetblok mag nooit een lopende microfoonstream onderbreken."""
+    try:
+        return meet_rms_en_piek_van_een_audioblok(blok)[0]
+    except Exception:
+        return 0.0
 
 
 def controleer_of_microfoon_een_echt_opnameapparaat_is(
@@ -188,6 +219,13 @@ class LiveAudiomixer:
         self._microfoon: GevondenAudioapparaat | None = None
         self._kabel: GevondenAudioapparaat | None = None
         self._geluidseffecten_ingeschakeld = False
+        # Extern geconfigureerde factor, uitsluitend voor soundboardfragmenten.
+        # De audiocallback leest deze waarde maar doet geen database-I/O.
+        self._algemeen_effectvolume_percentage = 100
+        self._vorige_effectvolume_factor = 1.0
+        self._effect_actief = False
+        self._effect_rms_voor = 0.0
+        self._effect_rms_na = 0.0
         self._laatste_fout: str | None = None
         self._bufferproblemen = 0
         self._gestarte_draad: threading.Thread | None = None
@@ -210,8 +248,77 @@ class LiveAudiomixer:
         self._com_stand = "niet_gecontroleerd"
         self._stuur_effect_naar_eigen_headset = None
         self._maak_headsetbuffer_leeg = None
+        self._stuur_live_mix_naar_headset = None
+        self._eigen_stem_monitor_aan = False
+        self._limiter = PiekLimiter()
+        self._limiter_ingeschakeld = True
+        self._limiter_vorige_stand = True
+        self._limiter_reductie_db = 0.0
+        self._limiter_reductie_tijd = 0.0
+        self._limiter_terugvallen = 0
+        self._limiter_laatste_fout: BaseException | None = None
+        self._stemprofiel = "normaal"
+        self._stemvervormer_aan = False
+        self._stemintensiteiten = dict(STANDAARD_INTENSITEITEN)
+        self._stemparameters = standaard_parameters()
+        self._stem_rms = 0.0
+        self._stem_piek = 0.0
+        self._stem_was_actief = False
+        self._stemvervormer = Stemvervormer()
+        self.natuurlijke_stem = None
+        self._stem_natuurlijk_was_actief = False
+        self._stemvervorming_terugvallen = 0
+        self._stemvervorming_geblokkeerd = False
+        self._stemvervorming_laatste_fout: BaseException | None = None
 
-    def koppel_monitor_voor_effecten(self, stuur_samples, maak_buffer_leeg) -> None:
+    def stel_stemprofiel_in(self, profiel: str) -> None:
+        """Atomic string assignment. De audiocallback wijzigt zijn eigen DSP-state."""
+        self._stemprofiel = controleer_stemprofiel(profiel)
+
+    def is_stemvervormer_ingeschakeld(self) -> bool:
+        """Laat de actuele live-schakelstand zien zonder database-I/O."""
+        return self._stemvervormer_aan
+
+    def stel_stemvervormer_aan_in(self, aan: bool) -> None:
+        # Callback leest uitsluitend geheugen; geen databaseverbinding.
+        if type(aan) is not bool:
+            raise ValueError('STEM-082: aan moet een boolean zijn.')
+        self._stemvervormer_aan = aan
+
+    def stel_stemintensiteiten_in(self, waarden: dict[str, int]) -> None:
+        """Vervang één immutable snapshot; callback leest enkel geheugen."""
+        if set(waarden) != set(STANDAARD_INTENSITEITEN):
+            raise ValueError('STEM-031: onvolledige stemprofielinstellingen.')
+        nieuw = {controleer_stemprofiel(naam): controleer_stemintensiteit(sterkte)
+                 for naam, sterkte in waarden.items()}
+        self._stemintensiteiten = nieuw
+
+    def stel_stemparameters_in(self, waarden: dict[str, dict]) -> None:
+        if set(waarden) != set(standaard_parameters()):
+            raise ValueError('STEM-053: onvolledige effectinstellingen.')
+        self._stemparameters = {naam: controleer_parameters(naam, params) for naam, params in waarden.items()}
+
+    def stel_algemeen_effectvolume_in(self, percentage: int) -> None:
+        """Stel het algemene effectvolume in zonder een audiostream te herstarten."""
+        if type(percentage) is not int or not 0 <= percentage <= 200:
+            raise ValueError('VOLUME-001: verwacht een percentage van 0 tot 200.')
+        self._algemeen_effectvolume_percentage = percentage
+
+    def geef_algemeen_effectvolume(self) -> int:
+        return self._algemeen_effectvolume_percentage
+
+    def stel_limiter_in(self, ingeschakeld: bool) -> None:
+        """Wissel alleen een bool; geen schijf-I/O of audiostream-herstart."""
+        if type(ingeschakeld) is not bool:
+            raise ValueError('LIMITER-004: ingeschakeld moet true of false zijn.')
+        self._limiter_ingeschakeld = ingeschakeld
+
+    def stel_eigen_stem_monitor_in(self, aan: bool) -> None:
+        if type(aan) is not bool:
+            raise ValueError('MON-010: stemmonitor moet true of false zijn.')
+        self._eigen_stem_monitor_aan = aan
+
+    def koppel_monitor_voor_effecten(self, stuur_samples, maak_buffer_leeg, stuur_live_mix=None) -> None:
         """Bewaar optionele monitorfuncties, maar laat microfoonuitvoer onafhankelijk.
 
         De gekoppelde monitor krijgt uitsluitend het kant-en-klare effectblok.
@@ -219,6 +326,7 @@ class LiveAudiomixer:
         """
         self._stuur_effect_naar_eigen_headset = stuur_samples
         self._maak_headsetbuffer_leeg = maak_buffer_leeg
+        self._stuur_live_mix_naar_headset = stuur_live_mix
 
     def geef_huidige_status(self) -> StatusVanDeLiveVerbinding:
         """Maak een snapshot, inclusief echte signalen die de callback verwerkt.
@@ -261,6 +369,25 @@ class LiveAudiomixer:
                                      if self._huidige_geluid else 0.0),
                 beginpositie_seconden=(self._huidige_geluid.geluid.fragment_begint_bij_seconden
                                        if self._huidige_geluid else 0.0),
+                live_herhalen=bool(self._huidige_geluid and self._huidige_geluid.herhalen),
+                live_basisvolume=self._huidige_geluid.basisvolume if self._huidige_geluid else None,
+                positie_wijzigingsnummer=(self._huidige_geluid.positie_wijzigingsnummer
+                                          if self._huidige_geluid else 0),
+                limiter_aan=self._limiter_ingeschakeld,
+                limiter_reductie_db=(
+                    round(self._limiter_reductie_db, 2)
+                    if self._limiter_ingeschakeld
+                    and nu - self._limiter_reductie_tijd <= 0.55 else 0.0
+                ),
+                limiter_terugvallen=self._limiter_terugvallen,
+                stemprofiel=self._stemprofiel,
+                stemvervorming_terugvallen=self._stemvervorming_terugvallen,
+                stemvervorming_geblokkeerd=self._stemvervorming_geblokkeerd,
+                stem_rms=self._stem_rms if self._is_signaal_gemeten and self._toestand == "verbonden" else 0.0,
+                stem_piek=self._stem_piek if self._is_signaal_gemeten and self._toestand == "verbonden" else 0.0,
+                effect_actief=self._effect_actief and self._toestand == "verbonden",
+                effect_rms_voor=self._effect_rms_voor if self._toestand == "verbonden" else 0.0,
+                effect_rms_na=self._effect_rms_na if self._toestand == "verbonden" else 0.0,
             )
 
     def _verander_status(self, nieuwe_toestand: str, foutmelding: str | None = None) -> None:
@@ -298,10 +425,28 @@ class LiveAudiomixer:
             self._microfoon_piek = 0.0
             self._kabel_piek = 0.0
             self._is_signaal_gemeten = False
+            self._effect_actief = False
+            self._effect_rms_voor = 0.0
+            self._effect_rms_na = 0.0
             self._recente_microfoonmetingen = GeschiedenisVanAudioniveaus()
             self._recente_kabelmetingen = GeschiedenisVanAudioniveaus()
             self._huidige_startpoging = 0
             self._com_stand = "niet_gecontroleerd"
+            self._limiter = PiekLimiter()
+            self._limiter_vorige_stand = self._limiter_ingeschakeld
+            self._limiter_reductie_db = 0.0
+            self._limiter_reductie_tijd = 0.0
+            self._limiter_terugvallen = 0
+            self._limiter_laatste_fout = None
+            self._stem_was_actief = False
+            self._stemvervormer = Stemvervormer(self._stemprofiel,
+                                                    intensiteit=self._stemintensiteiten[self._stemprofiel],
+                                                    parameters=self._stemparameters)
+            self._stem_rms = 0.0
+            self._stem_piek = 0.0
+            self._stemvervorming_terugvallen = 0
+            self._stemvervorming_geblokkeerd = False
+            self._stemvervorming_laatste_fout = None
             self._stop_de_verbinding = threading.Event()
             self._audio_opdrachten = SimpleQueue()
             self._audit_vanuit_callback = SimpleQueue()
@@ -342,16 +487,22 @@ class LiveAudiomixer:
             raise LiveVerbindingFout("LIVE-010: verbind eerst de microfoon.")
         self._audio_opdrachten.put(_AudioOpdracht("effecten_aan_of_uit", geluidseffecten_aan))
 
-    def speel_een_voorbereid_geluid(self, geluid: VoorbereidGeluidsfragment, geluid_id: str | None = None) -> str:
+    def speel_een_voorbereid_geluid(self, geluid: VoorbereidGeluidsfragment, geluid_id: str | None = None,
+                                    *, herhalen: bool = False, basisvolume: float | None = None) -> str:
         """Leg bytes buiten de callback om als samples klaar, dan pas aanbieden."""
         if not isinstance(geluid, VoorbereidGeluidsfragment):
             raise LiveVerbindingFout("LIVE-011: een voorbereid geluidsfragment ontbreekt.")
+        if type(herhalen) is not bool:
+            raise LiveVerbindingFout("LIVE-027: herhalen moet true of false zijn.")
         if self.geef_huidige_status().toestand != "verbonden":
             schrijf_auditgebeurtenis(self.auditlogboek, "geluid_geweigerd", {"reden": "geen_verbinding"})
             raise LiveVerbindingFout("LIVE-012: druk eerst op Verbinden.")
         if not self.geef_huidige_status().geluidseffecten_aan:
             schrijf_auditgebeurtenis(self.auditlogboek, "geluid_geweigerd", {"reden": "soundboard_uit"})
             raise LiveVerbindingFout("LIVE-013: zet Soundboard aan om een geluid af te spelen.")
+        if basisvolume is not None and (type(basisvolume) not in (int, float)
+                or not np.isfinite(basisvolume) or not 0 <= basisvolume <= 2):
+            raise LiveVerbindingFout('VOLUME-005: kies een basisvolume van 0 tot 200%.')
         samples = np.frombuffer(geluid.ruwe_float32_stereo_audio, dtype=np.float32)
         if samples.size == 0 or samples.size != geluid.aantal_frames * 2:
             raise LiveVerbindingFout("LIVE-014: voorbereid geluid bevat geen volledige stereoframes.")
@@ -360,6 +511,9 @@ class LiveAudiomixer:
             geluid=geluid,
             voorbereide_samples=samples.reshape((-1, 2)),
             geluid_id=geluid_id,
+            herhalen=herhalen,
+            basisvolume=basisvolume,
+            vorige_basisvolume_factor=1.0 if basisvolume is None else float(basisvolume),
         )
         self._audio_opdrachten.put(_AudioOpdracht("speel_geluid", nieuw_geluid))
         return nieuw_geluid.afspeelbeurt_id
@@ -367,6 +521,34 @@ class LiveAudiomixer:
     def stop_het_huidige_geluid(self) -> None:
         """Stop een geluidsfragment, zonder ook de live microfoon te stoppen."""
         self._audio_opdrachten.put(_AudioOpdracht("stop_geluid"))
+
+    def zoek_in_lopend_geluid(self, afspeelbeurt_id: str, fractie: float) -> None:
+        """Verplaats een reeds gedecodeerd fragment via de audiowachtrij.
+
+        Geen audiofile openen, database lezen of wachten op het callback in HTTP.
+        De unieke afspeelbeurt voorkomt dat een oude seek een nieuwe clip raakt.
+        """
+        if not isinstance(afspeelbeurt_id, str) or len(afspeelbeurt_id) != 36:
+            raise LiveVerbindingFout('LIVE-023: ongeldige afspeelbeurt.')
+        if not isinstance(fractie, (float, int)) or isinstance(fractie, bool) or not np.isfinite(fractie) or not 0 <= fractie <= 1:
+            raise LiveVerbindingFout('LIVE-024: positie moet tussen 0 en 1 liggen.')
+        self._audio_opdrachten.put(_AudioOpdracht('zoek_geluid', (afspeelbeurt_id, float(fractie))))
+
+    def stel_lopend_geluid_herhalen_in(self, afspeelbeurt_id: str, aan: bool) -> None:
+        """Herhalen geldt uitsluitend voor déze afspeelbeurt, nooit voor een volgende."""
+        if not isinstance(afspeelbeurt_id, str) or len(afspeelbeurt_id) != 36:
+            raise LiveVerbindingFout('LIVE-025: ongeldige afspeelbeurt.')
+        if type(aan) is not bool:
+            raise LiveVerbindingFout('LIVE-026: herhalen moet true of false zijn.')
+        self._audio_opdrachten.put(_AudioOpdracht('herhaal_geluid', (afspeelbeurt_id, aan)))
+
+    def stel_lopend_basisvolume_in(self, afspeelbeurt_id: str, volume: float) -> None:
+        """Pas alleen deze afspeelbeurt aan, zonder decoden of de microfoon te wijzigen."""
+        if not isinstance(afspeelbeurt_id, str) or len(afspeelbeurt_id) != 36:
+            raise LiveVerbindingFout('SPELER-001: dit fragment speelt niet meer.')
+        if type(volume) not in (int, float) or not np.isfinite(volume) or not 0 <= volume <= 2:
+            raise LiveVerbindingFout('VOLUME-005: kies een basisvolume van 0 tot 200%.')
+        self._audio_opdrachten.put(_AudioOpdracht('basisvolume_geluid', (afspeelbeurt_id, float(volume))))
 
     def _zet_audio_audit_klaar(self, gebeurtenis: str, gegevens: dict[str, Any]) -> None:
         # Geen schijf-I/O in de callback. De verbindingsthread schrijft dit weg.
@@ -415,6 +597,28 @@ class LiveAudiomixer:
                 )
             elif opdracht.soort == "stop_geluid":
                 self._sluit_lopend_geluid_af("handmatig_gestopt")
+            elif opdracht.soort == "zoek_geluid":
+                afspeelbeurt, fractie = opdracht.gegevens
+                actief = self._huidige_geluid
+                if actief is not None and actief.afspeelbeurt_id == afspeelbeurt:
+                    lengte = len(actief.voorbereide_samples)
+                    if lengte:
+                        actief.huidige_framepositie = min(lengte - 1, int(fractie * lengte))
+                        actief.positie_wijzigingsnummer += 1
+                        actief.fade_in_frames = min(144, lengte)
+                        if self._maak_headsetbuffer_leeg is not None:
+                            self._maak_headsetbuffer_leeg()
+            elif opdracht.soort == "herhaal_geluid":
+                afspeelbeurt, aan = opdracht.gegevens
+                actief = self._huidige_geluid
+                if actief is not None and actief.afspeelbeurt_id == afspeelbeurt:
+                    actief.herhalen = aan
+            elif opdracht.soort == 'basisvolume_geluid':
+                afspeelbeurt, volume = opdracht.gegevens
+                actief = self._huidige_geluid
+                if (actief is not None and actief.afspeelbeurt_id == afspeelbeurt
+                        and actief.basisvolume is not None):
+                    actief.basisvolume = volume
             elif opdracht.soort == "speel_geluid":
                 nieuw_geluid = opdracht.gegevens
                 if not self._geluidseffecten_ingeschakeld:
@@ -445,23 +649,80 @@ class LiveAudiomixer:
                     )
 
     def _verwerk_het_lopende_geluid_in_het_audioblok(self, uitvoerbuffer: np.ndarray) -> None:
+        # Alleen getallen voor UI, geen audio-opnames. Reset zodra het geluid stopt.
+        self._effect_actief = False
+        self._effect_rms_voor = 0.0
+        self._effect_rms_na = 0.0
         lopend = self._huidige_geluid
         if lopend is None:
+            # Een nieuwe clip begint op de gekozen stand, zonder oude ramp.
+            self._vorige_effectvolume_factor = self._algemeen_effectvolume_percentage / 100.0
             return
-        maximaal_aantal_frames = len(lopend.voorbereide_samples) - lopend.huidige_framepositie
-        aantal_frames_dit_blok = min(len(uitvoerbuffer), maximaal_aantal_frames)
-        if aantal_frames_dit_blok > 0:
-            begin_frame = lopend.huidige_framepositie
-            effecten_dit_blok = lopend.voorbereide_samples[
-                begin_frame : begin_frame + aantal_frames_dit_blok, :
-            ]
-            uitvoerbuffer[:aantal_frames_dit_blok, :] += effecten_dit_blok
-            if self._stuur_effect_naar_eigen_headset is not None:
-                # De monitor krijgt precies de effecten, nooit het microfoondeel.
-                # Geen logboekacties of bestands-I/O vanuit de realtime callback.
-                self._stuur_effect_naar_eigen_headset(effecten_dit_blok)
+        bron = lopend.voorbereide_samples
+        aantal_bronframes = len(bron)
+        lengte_blok = len(uitvoerbuffer)
+        if aantal_bronframes <= 0 or lengte_blok <= 0:
+            self._sluit_lopend_geluid_af("leeg_fragment")
+            return
+        begin_frame = lopend.huidige_framepositie
+        if lopend.herhalen:
+            # De volledige uitvoerbuffer vullen, ook als de loop middenin eindigt.
+            # Dit voorkomt steeds korte stiltes op de rand van een herhaling.
+            indices = (np.arange(lengte_blok, dtype=np.int64) + begin_frame) % aantal_bronframes
+            effecten_dit_blok = bron[indices, :].copy()
+            aantalloops = (begin_frame + lengte_blok) // aantal_bronframes
+            lopend.huidige_framepositie = (begin_frame + lengte_blok) % aantal_bronframes
+            if aantalloops:
+                lopend.positie_wijzigingsnummer += aantalloops
+            # Twee milliseconden rond de lusgrens zijn licht afgezwakt om een
+            # klik te voorkomen wanneer het einde niet precies op nul uitkomt.
+            rand = min(96, max(0, aantal_bronframes // 4))
+            if rand:
+                afstand = indices.astype(np.int64)
+                envelop = np.minimum(1., np.minimum(afstand, aantal_bronframes - 1 - afstand) / rand)
+                effecten_dit_blok *= envelop.astype(np.float32)[:, None]
+            aantal_frames_dit_blok = lengte_blok
+        else:
+            beschikbaar = aantal_bronframes - begin_frame
+            aantal_frames_dit_blok = min(lengte_blok, max(0, beschikbaar))
+            effecten_dit_blok = bron[begin_frame:begin_frame + aantal_frames_dit_blok, :]
             lopend.huidige_framepositie += aantal_frames_dit_blok
-        if lopend.huidige_framepositie >= len(lopend.voorbereide_samples):
+        if aantal_frames_dit_blok > 0:
+            if lopend.fade_in_frames:
+                # Na een gebruikers-seek nooit met een harde samplegrens starten.
+                effecten_dit_blok = effecten_dit_blok.copy()
+                aantal = min(lopend.fade_in_frames, aantal_frames_dit_blok)
+                effecten_dit_blok[:aantal, :] *= np.linspace(
+                    0, 1, aantal, dtype=np.float32)[:, None]
+                lopend.fade_in_frames -= aantal
+            # De samples zijn bij de webspeler op basisvolume 100% voorbereid.
+            # Zo blijft ook een fragment dat op 0% begon later versterkbaar.
+            basisvolume = getattr(lopend, 'basisvolume', None)
+            if basisvolume is not None:
+                vorige = lopend.vorige_basisvolume_factor
+                if abs(basisvolume - vorige) > 1e-6:
+                    ramp = np.linspace(vorige, basisvolume, aantal_frames_dit_blok + 1,
+                                       dtype=np.float32)[1:]
+                    effecten_dit_blok = effecten_dit_blok * ramp[:, None]
+                elif basisvolume != 1.0:
+                    effecten_dit_blok = effecten_dit_blok * basisvolume
+                lopend.vorige_basisvolume_factor = basisvolume
+            self._effect_rms_voor = _meet_effect_rms_zonder_audio_te_onderbreken(effecten_dit_blok)
+            gewenste_factor = self._algemeen_effectvolume_percentage / 100.0
+            vorige_factor = self._vorige_effectvolume_factor
+            if abs(gewenste_factor - vorige_factor) > 1e-6:
+                ramp = np.linspace(vorige_factor, gewenste_factor,
+                                   aantal_frames_dit_blok + 1, dtype=np.float32)[1:]
+                effecten_dit_blok = effecten_dit_blok * ramp[:, None]
+            elif gewenste_factor != 1.0:
+                effecten_dit_blok = effecten_dit_blok * gewenste_factor
+            self._vorige_effectvolume_factor = gewenste_factor
+            self._effect_rms_na = _meet_effect_rms_zonder_audio_te_onderbreken(effecten_dit_blok)
+            self._effect_actief = True
+            uitvoerbuffer[:aantal_frames_dit_blok, :] += effecten_dit_blok
+            if self._stuur_effect_naar_eigen_headset is not None and not self._eigen_stem_monitor_aan:
+                self._stuur_effect_naar_eigen_headset(effecten_dit_blok)
+        if not lopend.herhalen and lopend.huidige_framepositie >= aantal_bronframes:
             self._sluit_lopend_geluid_af("volledig_aangeleverd")
 
     def verwerk_een_blok_live_audio(
@@ -472,12 +733,96 @@ class LiveAudiomixer:
         try:
             if status_van_driver:
                 self._bufferproblemen += 1
-            maak_stereoblok_met_microfoon(inkomende_microfoonframes, uitgaande_audio)
+            # Pas alleen de fysieke stem aan. Soundboardgeluiden worden PAS
+            # daarna toegevoegd. Bij een stemfout nooit de originele stem lekken.
+            microfoon_voor_mix = inkomende_microfoonframes
+            dienst = self.natuurlijke_stem
+            natuurlijk_actief = dienst is not None and dienst.aan
+            stem_actief = natuurlijk_actief or (self._stemvervormer_aan and self._stemprofiel != 'normaal')
+            self._stemvervorming_geblokkeerd = False
+            try:
+                if (stem_actief != self._stem_was_actief
+                        or natuurlijk_actief != self._stem_natuurlijk_was_actief):
+                    self._stemvervormer.herstel_audiobuffers()
+                    self._stem_was_actief = stem_actief
+                    self._stem_natuurlijk_was_actief = natuurlijk_actief
+                if natuurlijk_actief:
+                    microfoon_voor_mix = dienst.verwerk(inkomende_microfoonframes, 'live')
+                else:
+                    if self._stemvervormer.profiel != self._stemprofiel:
+                        self._stemvervormer.kies_profiel(self._stemprofiel)
+                    # Parameters bijstellen zonder herverbinden en zonder schijf-I/O.
+                    if self._stemvervormer._bron_parameters_ref is not self._stemparameters:
+                        self._stemvervormer.neem_gecontroleerde_parameters_over(self._stemparameters)
+                    intensiteit = self._stemintensiteiten[self._stemprofiel]
+                    if self._stemvervormer.intensiteit != intensiteit:
+                        self._stemvervormer.stel_intensiteit_in(intensiteit)
+                    if stem_actief:
+                        microfoon_voor_mix = self._stemvervormer.verwerk(inkomende_microfoonframes)
+                if stem_actief:
+                    if (not isinstance(microfoon_voor_mix, np.ndarray)
+                            or microfoon_voor_mix.shape != inkomende_microfoonframes.shape
+                            or microfoon_voor_mix.dtype != np.float32
+                            or not np.isfinite(microfoon_voor_mix).all()):
+                        raise ValueError('STEM-004: de stemverwerking gaf ongeldige samples terug.')
+            except Exception as stemfout:
+                self._stemvervorming_terugvallen += 1
+                if self._stemvervorming_laatste_fout is None:
+                    self._stemvervorming_laatste_fout = stemfout
+                self._stemvervorming_geblokkeerd = bool(stem_actief)
+                microfoon_voor_mix = (np.zeros_like(inkomende_microfoonframes)
+                                      if stem_actief else inkomende_microfoonframes)
+            maak_stereoblok_met_microfoon(microfoon_voor_mix, uitgaande_audio)
+            stem_voor_headset = (uitgaande_audio.copy() if self._eigen_stem_monitor_aan
+                                 and self._stuur_live_mix_naar_headset is not None else None)
             self._voer_wachtende_opdrachten_uit()
             self._verwerk_het_lopende_geluid_in_het_audioblok(uitgaande_audio)
-            # Dit is voorlopig een veiligheidsbegrenzing, nog geen verfijnde
-            # look-ahead-limiter. Het voorkomt oversturing van de kabel.
+            # Voor headsetmonitoring bewaren we alleen bij ingeschakelde eigen
+            # stem de mix vóór de limiter. Zo kan het lokaal beluisterde
+            # stemdeel dezelfde piekbeperking volgen als VB-CABLE.
+            mix_voor_begrenzen = uitgaande_audio.copy() if stem_voor_headset is not None else None
+            # Eindmix eerst met een dynamische peak-gain beperken. Geen extra
+            # bufferlatentie, disk-I/O of Python-lus over audioframes.
+            # Uit schakelt de limiter uit voor vergelijking; de oude harde
+            # veiligheidsgrens blijft in beide standen bestaan.
+            if self._limiter_vorige_stand != self._limiter_ingeschakeld:
+                self._limiter.herstel()
+                self._limiter_vorige_stand = self._limiter_ingeschakeld
+                self._limiter_reductie_db = 0.0
+            if self._limiter_ingeschakeld:
+                try:
+                    reductie = self._limiter.verwerk_in_place(uitgaande_audio)
+                    if reductie >= 0.05:
+                        self._limiter_reductie_db = reductie
+                        self._limiter_reductie_tijd = time.monotonic()
+                except Exception as fout:
+                    # Een defecte limiter mag de stem niet onderbreken.
+                    # Diagnose wordt pas in de beheerthread weggeschreven.
+                    self._limiter_terugvallen += 1
+                    if self._limiter_terugvallen == 1:
+                        self._limiter_laatste_fout = fout
+                        self._zet_audio_audit_klaar('limiter_terugval', {
+                            'fouttype': type(fout).__name__, 'aantal': 1})
+                    self._limiter.herstel()
+            # Altijd het laatste veiligheidsnet, ook bij uitgeschakelde limiter.
+            # Non-finite audio wordt in de foutuitwijk geneutraliseerd.
+            np.nan_to_num(uitgaande_audio, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
             np.clip(uitgaande_audio, -MAXIMALE_PIEKWAARDE, MAXIMALE_PIEKWAARDE, out=uitgaande_audio)
+            if stem_voor_headset is not None:
+                # Het stemdeel volgt dezelfde samplebegrenzing als de totale
+                # uitgang. De eigen volumenregelaar mag vervolgens uitsluitend
+                # dit stemdeel aanpassen; het echte VB-CABLE-signaal blijft intact.
+                verhouding = np.ones_like(uitgaande_audio)
+                np.divide(uitgaande_audio, mix_voor_begrenzen, out=verhouding,
+                          where=np.abs(mix_voor_begrenzen) > 1e-6)
+                np.clip(verhouding, 0.0, 1.0, out=verhouding)
+                stem_voor_headset *= verhouding
+                # Alleen de al bestaande headset-output krijgt deze kopie.
+                try:
+                    self._stuur_live_mix_naar_headset(uitgaande_audio, stem_voor_headset)
+                except Exception:
+                    # Een monitorfout mag de virtuele microfoon nooit stoppen.
+                    pass
             # De stream kan 'active' zijn zonder een hoorbaar signaal te leveren.
             # Daarom bewaren we het aantal callbacks en de werkelijk gemeten
             # invoer- en uitvoerniveaus. Nooit de ruwe spraak zelf.
@@ -491,6 +836,9 @@ class LiveAudiomixer:
             if self._aantal_audio_callbacks % AANTAL_CALLBACKS_TUSSEN_SIGNAALMETINGEN == 0:
                 self._microfoon_rms, self._microfoon_piek = (
                     meet_rms_en_piek_van_een_audioblok(inkomende_microfoonframes)
+                )
+                self._stem_rms, self._stem_piek = (
+                    meet_rms_en_piek_van_een_audioblok(microfoon_voor_mix)
                 )
                 self._kabel_rms, self._kabel_piek = (
                     meet_rms_en_piek_van_een_audioblok(uitgaande_audio)
@@ -516,6 +864,24 @@ class LiveAudiomixer:
             raise self.audiobibliotheek.CallbackAbort from oorspronkelijke_fout
 
     def _schrijf_alle_uitgestelde_auditregels(self) -> None:
+        stemfout = self._stemvervorming_laatste_fout
+        if stemfout is not None:
+            self._stemvervorming_laatste_fout = None
+            self.softwarelogboek.error(
+                'Stemverwerking gaf een fout; een actieve effectstem wordt niet onbewerkt doorgestuurd',
+                exc_info=(type(stemfout), stemfout, stemfout.__traceback__),
+                extra={'gebeurtenis': 'stemvervorming_terugval', 'gegevens': {'foutcode': 'STEM-999'}},
+            )
+        # Tracebacks worden pas op de beheerthread weggeschreven; een
+        # audiocallback mag nooit op een schijfhandler blokkeren.
+        limiterfout = self._limiter_laatste_fout
+        if limiterfout is not None:
+            self._limiter_laatste_fout = None
+            self.softwarelogboek.error(
+                'De pieklimiter is teruggevallen op de veilige piekbegrenzing',
+                exc_info=(type(limiterfout), limiterfout, limiterfout.__traceback__),
+                extra={'gebeurtenis': 'pieklimiter_terugval', 'gegevens': {'foutcode': 'LIMITER-999'}},
+            )
         while True:
             try:
                 gebeurtenis, gegevens = self._audit_vanuit_callback.get_nowait()

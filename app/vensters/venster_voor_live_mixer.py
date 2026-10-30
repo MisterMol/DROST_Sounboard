@@ -24,6 +24,7 @@ from app.audio.geluidenbibliotheek import (
 )
 from app.audio.mp3_en_wav_fragmenten import lees_en_bereid_mp3_of_wav_voor
 from app.audio.kabelcontrole import selecteer_de_twee_uiteinden_van_vb_cable
+from app.audio.windows_standaardapparaten import vind_wasapi_standaardapparaat
 from app.audio.live_audiomixer import LiveAudiomixer
 from app.audio.signaaldiagnose import (
     maak_een_leesbaar_geluidsniveau,
@@ -38,6 +39,7 @@ class VensterVoorLiveMixer:
     def __init__(self, venster: Any, logboeken: BeschikbareLogboeken, audiobibliotheek: Any):
         self.venster = venster
         self.logboeken = logboeken
+        self.audioapparaten = audiobibliotheek
         self.mixer = LiveAudiomixer(
             audiobibliotheek,
             logboeken.softwarelogboek,
@@ -75,7 +77,7 @@ class VensterVoorLiveMixer:
             value="Er is nog geen audiostream gestart."
         )
 
-        venster.title("DrostSoundboard | MP3- en WAV-bibliotheek, fase 2.4")
+        venster.title("DrostSoundboard | Audiomixer")
         venster.geometry("740x640")
         venster.minsize(650, 480)
         venster.protocol("WM_DELETE_WINDOW", self.vraag_of_de_app_afgesloten_mag_worden)
@@ -231,7 +233,7 @@ class VensterVoorLiveMixer:
             inhoud,
             text=(
                 "Soundboard aan speelt niet vanzelf een geluid. Klik ook op Geluid afspelen. "
-                "Geluid gaat naar VB-CABLE en is niet automatisch via je Razer te horen."
+                "Geluid gaat naar de virtuele microfoon; lokale weergave regel je apart."
             ),
             wraplength=650,
         ).pack(anchor="w", pady=(5, 5))
@@ -266,11 +268,22 @@ class VensterVoorLiveMixer:
             }
             namen_voor_keuzelijst = list(self.geselecteerde_microfoons)
             self.keuze_voor_microfoon["values"] = namen_voor_keuzelijst
-            voorkeur_voor_razer = next(
-                (naam for naam in namen_voor_keuzelijst if "razer" in naam.casefold()),
-                namen_voor_keuzelijst[0],
-            )
-            self.geselecteerde_microfoon_tekst.set(voorkeur_voor_razer)
+            # Ook in het oude venster géén fabrikantvoorkeur: de Windows-standaard
+            # krijgt voorrang, anders alleen automatisch kiezen bij precies één microfoon.
+            gekozen = ''
+            try:
+                standaard = vind_wasapi_standaardapparaat(
+                    self.audioapparaten.query_devices(), self.audioapparaten.query_hostapis(), 'invoer')
+                if standaard:
+                    nummer, naam = standaard
+                    gekozen = next((sleutel for sleutel, apparaat in self.geselecteerde_microfoons.items()
+                        if apparaat.huidig_apparaatnummer == nummer and apparaat.naam == naam), '')
+            except Exception:
+                # Een ontbrekende standaard is geen reden voor een willekeurige apparaatkeuze.
+                pass
+            if not gekozen and len(namen_voor_keuzelijst) == 1:
+                gekozen = namen_voor_keuzelijst[0]
+            self.geselecteerde_microfoon_tekst.set(gekozen)
             self.status_onderaan.set("Microfoon en virtuele kabel gevonden. Nog niet verbonden.")
             schrijf_auditgebeurtenis(
                 self.logboeken.auditlogboek, "apparaten_opnieuw_gezocht",
@@ -543,7 +556,7 @@ class VensterVoorLiveMixer:
                 "Verbonden, geluidseffecten aan" if status.geluidseffecten_aan
                 else "Verbonden, alleen microfoon"
             )
-            uitleg = "De Razer of gekozen microfoon wordt continu naar CABLE Input gestuurd."
+            uitleg = "De gekozen microfoon wordt continu naar de virtuele microfoon gestuurd."
         elif status.toestand == "wordt_verbonden":
             zichtbaar = "Verbinding wordt gemaakt..."
             if status.huidige_startpoging > 0:
@@ -556,7 +569,7 @@ class VensterVoorLiveMixer:
                 uitleg = "Apparaatinstellingen worden gecontroleerd."
         elif status.toestand == "wordt_verbroken":
             zichtbaar = "Verbinding wordt afgesloten..."
-            uitleg = "De microfoon kan zo meteen stil zijn in Discord."
+            uitleg = "De virtuele microfoon kan zo meteen stil worden in andere programma’s."
         elif status.toestand == "fout":
             zichtbaar = "Verbindingsfout"
             uitleg = f"{status.laatst_bekende_fout}. Zie software.jsonl voor de traceback."
@@ -633,8 +646,8 @@ class VensterVoorLiveMixer:
         if toestand in ("verbonden", "wordt_verbonden", "wordt_verbroken"):
             bevestiging = messagebox.askyesno(
                 "DrostSoundboard afsluiten",
-                "Als Discord CABLE Output gebruikt, stopt jouw microfoon daar zodra "
-                "de applicatie afsluit. Wil je de verbinding verbreken en afsluiten?",
+                "Programma’s die de virtuele microfoon gebruiken ontvangen na het afsluiten "
+                "geen geluid meer. Wil je de verbinding verbreken en afsluiten?",
                 parent=self.venster,
             )
             if not bevestiging:

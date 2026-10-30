@@ -12,5 +12,10 @@ DrostSoundboard gebruikt onder andere:
 - **Velopack**: MIT, wordt voor de Windows-release als updater gebruikt, https://velopack.io/
 - **PyInstaller**: GPLv2 met speciale uitzondering voor applicatiebundeling, https://pyinstaller.org/
 - **VB-CABLE**: afzonderlijke download, donationware van VB-Audio, https://vb-audio.com/Cable/
+- **Signalsmith Stretch 1.3.0 en Signalsmith Linear 0.1.2**: MIT; bronlicenties staan in `app/audio/native/LICENTIES.txt` naast de gebundelde DLL, https://signalsmith-audio.co.uk/code/stretch/
+- **LLVC (Koe AI)**: MIT voor de betreffende LLVC-code; licentietekst zit in `stem-runtime/licenses/LLVC-MIT.txt` van het lokale stempakket. Dit zegt **niet automatisch** dat ieder afzonderlijk modelgewicht vrij verspreid mag worden.
+- **PyTorch**: BSD-3-Clause; de runtime heeft eigen licentie- en noticebestanden onder `stem-runtime/licenses/torch/`, https://pytorch.org/
+- **Stemmodellen en ingebouwde stemvoorbeelden**: controleer de oorspronkelijke herkomst, trainingsmateriaal en toestemmingen afzonderlijk. Een MIT-licentie op code geeft geen automatisch recht om stemopnames of modelgewichten openbaar te verspreiden.
+
 
 De bibliotheken houden hun eigen auteursrechten en licenties. De MIT-licentie van DrostSoundboard vervangt deze licenties niet. **Voor een publieke gebundelde installer is een volledige controle van de daadwerkelijke distributieartefacten nodig**, inclusief licentieteksten en FFmpeg-binaryconfiguratie.

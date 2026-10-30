@@ -37,6 +37,7 @@ class Selectie {
   const context = vm.createContext({
     toestand, Option: Keuze, element: naam => elementen[naam],
     vraagAanPython: async () => antwoord, toonMelding: () => {},
+    werkVerbindingsknopBij: () => {},
   });
   vm.runInContext(functie + '\nthis.__laad = laadApparaten;', context);
   const laad = context.__laad;
@@ -60,5 +61,12 @@ class Selectie {
   await laad();
   assert.equal(elementen.microfoonkeuze.value, '', 'Zonder standaard niet de eerste microfoon kiezen');
   assert.equal(elementen.microfoonkeuze.options[0].text, 'Kies een microfoon');
-  console.log('OK: vier apparaatkeuze-situaties');
+  antwoord.microfoons = [{ nummer: 8, naam: 'Microfoon (USB)' }];
+  antwoord.standaard_microfoonnummer = null;
+  await laad();
+  assert.equal(elementen.microfoonkeuze.value, '8', 'Bij exact één bruikbare microfoon deze automatisch kiezen');
+  antwoord.microfoons.push({ nummer: 9, naam: 'Microfoon (Headset)' });
+  await laad();
+  assert.equal(elementen.microfoonkeuze.value, '', 'Bij meerdere zonder standaard selectie open laten');
+  console.log('OK: zes apparaatkeuze-situaties');
 })().catch(fout => { console.error(fout); process.exitCode = 1; });

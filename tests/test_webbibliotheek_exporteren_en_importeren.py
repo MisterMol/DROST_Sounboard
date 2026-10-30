@@ -86,7 +86,7 @@ class TestWebBibliotheekArchief(unittest.TestCase):
             self.assertIn('manifest.json', zipbestand.namelist())
             manifest = json.loads(zipbestand.read('manifest.json'))
             self.assertEqual(len(manifest['geluiden']), 1)
-        status, resultaat, _ = self.verzoek('/api/bibliotheek/importeer', data, 'POST', bestand=True)
+        status, resultaat, _ = self.verzoek('/api/bibliotheek/importeer?dubbelen=toestaan', data, 'POST', bestand=True)
         self.assertEqual(status, 201)
         self.assertEqual(json.loads(resultaat)['aantal'], 1)
         self.assertEqual(len(self.bediening.geef_geluidsbibliotheek()['geluiden']), 2)

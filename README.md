@@ -1,65 +1,66 @@
 # DrostSoundboard
 
-Open-source soundboard voor Windows 11. Speel MP3, WAV en MP4 af via een bestaande virtuele microfoon en houd je headset beschikbaar om zelf mee te luisteren. Het lokale webdashboard is alleen de bediening; het Windows-systeemvakproces blijft actief als de browser dichtgaat.
+Een soundboard voor Windows dat ik als hobbyproject bouw. Je kunt geluiden snel terugvinden, lokaal beluisteren of via een virtuele microfoon naar bijvoorbeeld Discord sturen. Het dashboard ziet eruit als een webpagina, maar de audio draait lokaal op je eigen pc.
 
-**Status: 6.0.0-beta.3, nog niet publiek uitgebracht.** De zelfstandige Windows-installer is in ontwikkeling; installatie en automatische updates moeten op een tweede computer worden getest.
+**Huidige versie: 6.1.0 RC4.** Dit is een releasekandidaat, nog geen definitieve 6.1.0. Ik test hem eerst op andere Windowscomputers voordat ik hem als stabiel uitbreng.
 
-## Wat kan het?
+## Gewoon gebruiken
 
-- 15 vaste favorieten, groepen, zoekfunctie, fragmenteditor en audiopreview.
-- Audiofragmenten van maximaal 120 seconden, met eigen afbeelding, GIF of MP4-beeld.
-- Microfoon met effecten mixen via VB-CABLE; eigen headset kan meeluisteren.
-- Globale sneltoetsen (optioneel, standaard uit) en Windows-systeemvak.
-- Thema's, afspeelgeschiedenis en aparte exports als MP3, MP4, GIF en afbeelding.
-- Gescheiden auditlog en technische logging met tracebacks.
+Download de **Windows Setup** onder [GitHub Releases](https://github.com/MisterMol/DROST_Sounboard/releases). Kies de nieuwste geteste release en open het bestand dat eindigt op `Setup.exe`. Je hoeft hiervoor geen Python of Git te installeren.
 
-## VB-CABLE is een afzonderlijke installatie
+**Let op:** als er nog geen Release met Setup.exe staat, is er nog geen publieke installatie beschikbaar. De broncode-ZIP op GitHub is geen kant-en-klare installer.
 
-**[Download VB-CABLE via VB-Audio](https://vb-audio.com/Cable/)**. Deze donationware-driver wordt niet door DrostSoundboard meegeleverd. Na installatie en eventuele Windows-herstart:
+Na de installatie start je DrostSoundboard via het Startmenu of bureaublad. De app laat een waarschuwing zien als VB-CABLE ontbreekt en geeft meteen een link naar de maker.
 
-| Waar | Apparaat |
-| --- | --- |
-| Microfooningang van DrostSoundboard | Je Windows-standaardmicrofoon of een zelfgekozen microfoon |
-| Uitvoer van de audiomixer | `CABLE Input` |
-| Virtuele microfoon in andere programma's | `CABLE Output` |
-| Lokaal meeluisteren | Je Windows-standaarduitvoer of een zelfgekozen luisterapparaat |
+### VB-CABLE voor Discord en andere apps
 
-Let op: als DrostSoundboard helemaal stopt, kan je virtuele microfoon stilvallen. Zet dan eventueel de echte microfoon in je belapp terug.
+- **[Officiële VB-CABLE-download bij VB-Audio](https://vb-audio.com/Cable/)**
+- Download het Windows-pakket, pak de ZIP volledig uit en start `VBCABLE_Setup_x64.exe` als administrator.
+- Herstart Windows, start DrostSoundboard en klik zo nodig op **Opnieuw controleren**.
+- Kies in Discord bij het invoerapparaat **CABLE Output (VB-Audio Virtual Cable)**. DrostSoundboard gebruikt de andere kabelkant om audio uit te zenden.
 
-## Ontwikkelinstallatie (Windows 11)
+VB-CABLE is een aparte donationware-driver, geen onderdeel van DrostSoundboard. Zonder de driver kun je wel de bibliotheek beheren en Preview gebruiken, maar niet uitzenden als virtuele microfoon. Meer uitleg: [INSTALLEREN.md](INSTALLEREN.md).
 
-1. Installeer Python 3.13 en VB-CABLE afzonderlijk.
-2. Pak of kloon de projectcode uit naar een zelfgekozen map.
-3. Dubbelklik één keer op `Installeer_ontwikkelomgeving.bat`.
-4. Maak de bureaubladsnelkoppeling met `Maak_Bureaublad_Snelkoppeling.bat` en start daarna via die snelkoppeling.
-5. Kies in het dashboard je microfoon, klik op **Verbinden** en schakel **Geluidseffecten** aan.
-6. Stel globale sneltoetsen zo nodig in via **Sneltoetsen**.
+## Wat zit erin?
 
-Een browser sluiten beëindigt het systeemvakproces niet. Gebruik **Afsluiten** in het systeemvak om de volledige app te stoppen.
+- Drie dashboardindelingen: **Klassiek**, **Bibliotheek centraal** en **Favorieten eerst**. De keuze wordt onthouden.
+- 15 vaste favorieten, eigen mappen, snelle zoekfilters en een aparte beheerbibliotheek.
+- Preview via je headset en Uitzenden via de virtuele microfoon.
+- Een kleine speler met tijdlijn, Stop, Opnieuw afspelen, herhalen en volume tot 200 procent.
+- Fragmenten knippen, geluiden toevoegen, importeren en exporteren als audiopack.
+- Eigen thema's, accentkleuren en extra instellingen in **Weergave**.
+- Geluidseffecten, stemprofielen en een experimentele natuurlijke stemmotor (LLVC).
+- Optionele globale sneltoetsen en bediening vanuit het Windows-systeemvak.
 
-## Testen en problemen melden
+De aparte pagina **Bibliotheek** is voor beheer. De bibliotheek op het dashboard is om snel een geluid te zoeken en af te spelen.
+
+## Logo
+
+Het logo met de vijf geluidsbalkjes is overal hetzelfde: in de webinterface,
+het systeemvak, de Windows EXE en de Setup. Het originele vectorbestand staat
+in `assets/branding/DrostSoundboard.svg` (meer uitleg in [LOGO_EN_ICONEN.md](LOGO_EN_ICONEN.md)). Wil je het ooit aanpassen, dan kun je
+met `python -m hulpmiddelen.maak_logo_bestanden` de iconen opnieuw maken.
+
+Het dashboard draait in je gewone browser. Die browser heeft op de Windows
+taakbalk zijn **eigen** icoon; de DrostSoundboard EXE, de snelkoppelingen en het
+systeemvak krijgen wel het DrostSoundboard-logo.
+
+## Broncode klonen
+
+Wil je meekijken of zelf bijdragen? Installeer Git en Python 3.13 op Windows, en gebruik:
 
 ```powershell
-cd "$env:USERPROFILE\Desktop\pythonProjects\DrostSoundboard"
-.\.venv\Scripts\python.exe -m unittest discover -s tests -q
+git clone https://github.com/MisterMol/DROST_Sounboard.git
+cd DROST_Sounboard
+.\Start_Na_Git_Clone.cmd
 ```
 
-De tests gebruiken waar mogelijk nagebootste audioapparaten. **Ze bewijzen niet dat elke Windows-driver of game op elke pc werkt.** Gebruik bij fouten `Start_DrostSoundboard_Ontwikkeling.bat` en kijk onder `%LOCALAPPDATA%\DrostSoundboard\logboeken` naar `software.jsonl` en `audit.jsonl`.
+**Belangrijk:** de twee ingebouwde stemvoorbeeld-MP3’s van Bob en Elise horen wél bij de broncode en moeten in de GitHub-clone meekomen. De publieke Git-repository bevat verder bewust geen grote stemmodellen, lokale binaire stemruntime of persoonlijke geluiden. De starter controleert dit en zegt eerlijk wanneer je voor volledig gebruik de Windows Setup nodig hebt. Een gewone `git clone` is dus vooral de ontwikkelroute, niet de makkelijkste installatie voor vrienden.
 
-Bij een onverwachte API-fout toont de browser een korte **logreferentie**. Zoek die terug in `software.jsonl` voor de echte Python-traceback. Deel bij GitHub-issues geen volledige privébestanden of niet-geanonimiseerde logs.
+Wil je lokaal ontwikkelen, lees dan [CONTRIBUTING.md](CONTRIBUTING.md), [ARCHITECTUUR.md](ARCHITECTUUR.md) en [GITHUB_PUBLICEREN.md](GITHUB_PUBLICEREN.md). De code van het project staat onder [MIT](LICENSE); externe modellen en bibliotheken houden hun eigen voorwaarden. Zie [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-### MP4 vanaf 5.9.4
+## Problemen?
 
-Het dashboard maakt bij een live MP4 nog maar één videospeler aan, start pas na het zoeken naar het juiste fragment en corrigeert kleinere verschillen zonder telkens het beeld terug te zetten. Python bepaalt het hoorbare geluid; de browser toont gedempt beeld. De feitelijke vloeiendheid is mede afhankelijk van codec en systeem.
+Kijk eerst bij [INSTALLEREN.md](INSTALLEREN.md). Voor technische fouten staan de logboeken onder `%LOCALAPPDATA%\DrostSoundboard\logboeken`. Deel geen volledige logboeken, tokens, persoonlijke bestanden of privéopnames in een openbaar GitHub-issue.
 
-## Ontwikkelen en bijdragen
-
-Lees [`ARCHITECTUUR.md`](ARCHITECTUUR.md) voor een modulekaart, [`CONTRIBUTING.md`](CONTRIBUTING.md) voor code-afspraken en [`SECURITY.md`](SECURITY.md) voor beveiligingsmeldingen. Versiegeschiedenis en oudere fasehandleidingen zijn referentiemateriaal, niet de huidige installatie-instructie.
-
-De eigen code valt onder [`LICENSE`](LICENSE) (MIT). Externe bibliotheken behouden hun eigen licenties; zie [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Controleer vooral FFmpeg en andere gebundelde onderdelen vóór publicatie van een Windows-installer.
-
-Repository: https://github.com/MisterMol/DROST_Sounboard
-
-## VB-CABLE controleren bij de eerste start
-
-DrostSoundboard controleert in het dashboard of beide kanten van de gewone VB-CABLE via Windows WASAPI zichtbaar zijn. Als de kabel ontbreekt of niet volledig beschikbaar is, verschijnt een rustige melding met een link naar de [officiële VB-Audio-download](https://vb-audio.com/Cable/) en **Opnieuw controleren**. De geluidsbibliotheek en lokale previews werken zonder VB-CABLE; een virtuele microfoon voor games of gesprekken niet. VB-CABLE blijft een aparte driverinstallatie en wordt nooit stilzwijgend geïnstalleerd. Zie `FASE6_0_BETA2_VB_CABLE_CHECK.md`.
+**Updates:** voorlopig deel ik nieuwe versies als losse Windows Setup via GitHub Releases. Automatische updates zijn nog niet bevestigd. Sluit de app volledig af voordat je een nieuwere Setup start.

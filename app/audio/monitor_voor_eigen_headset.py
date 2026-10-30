@@ -1,6 +1,8 @@
-"""Laat de gebruiker eigen geluidseffecten horen zonder de microfoon terug te spelen.
+"""Laat de gebruiker effecten en desgewenst zijn bewerkte stem horen.
 
-De realtime audiomixer stuurt kleine blokken van ALLEEN het effect naar deze
+Normaal krijgt de monitor alleen effecten. Eigen stem horen is apart in te
+schakelen, met een veilige standaard van 25% en uitsluitend een headset-uitvoer.
+De realtime audiomixer stuurt kleine blokken van de geselecteerde signalen naar deze
 monitor. De aparte uitvoercallback speelt ze via de gekozen headset. Een
 begrensde deque voorkomt dat een vastlopende audiokaart onbeperkt RAM gebruikt.
 """
@@ -21,12 +23,14 @@ class MonitorFout(RuntimeError):
 
 
 class MonitorVoorEigenHeadset:
-    """Een aparte audiostream die nooit het microfoonsignaal ontvangt."""
+    """Eén aparte headset-outputstream, nooit een tweede microfoon-opname."""
 
     def __init__(self, audiobibliotheek: Any, softwarelogboek: logging.Logger):
         self.audiobibliotheek = audiobibliotheek
         self.softwarelogboek = softwarelogboek
         self.ingeschakeld = True
+        self.eigen_stem_ingeschakeld = False
+        self.eigen_stem_volume = 25
         self.gekozen_apparaatnummer: int | None = None
         self.huidige_apparaatnaam = 'Nog geen uitvoer gekozen'
         self.laatste_fout: str | None = None
@@ -96,7 +100,7 @@ class MonitorVoorEigenHeadset:
         gaan wanneer die draad al een andere COM-stand gebruikt. Daarom blijft
         één aparte monitorwerkdraad eigenaar van openen, afspelen én afsluiten.
         """
-        if not self.ingeschakeld:
+        if not (self.ingeschakeld or self.eigen_stem_ingeschakeld):
             return False
         if self._stroom is not None and self._stroom.active:
             return True
@@ -189,6 +193,38 @@ class MonitorVoorEigenHeadset:
         if len(self._klaarstaande_blokken) == self._klaarstaande_blokken.maxlen:
             self.aantal_overgelopen_blokken += 1
         self._klaarstaande_blokken.append(samples.copy())
+
+    def stel_eigen_stem_in(self, aan: bool, volume: int) -> None:
+        if type(aan) is not bool or type(volume) is not int or not 1 <= volume <= 100:
+            raise MonitorFout('MON-010: verwacht aan of uit en volume van 1 tot 100%.')
+        self.eigen_stem_ingeschakeld = aan
+        self.eigen_stem_volume = volume
+        if not (self.ingeschakeld or aan):
+            self.maak_monitorbuffer_leeg()
+
+    def ontvang_live_mix(self, totale_mix: np.ndarray, bewerkte_stem: np.ndarray) -> None:
+        """Monitor de verwerkte stem, zonder de VB-CABLE-uitvoer te wijzigen.
+
+        Bij 100% en meeluistereffecten ingeschakeld is dit exact de uitgaande
+        audiomix, na de limiter. De slider raakt alleen het stemdeel.
+        """
+        if (self._stroom is None or not self._stroom.active or
+                not (self.ingeschakeld or self.eigen_stem_ingeschakeld)):
+            return
+        volume = self.eigen_stem_volume / 100.0 if self.eigen_stem_ingeschakeld else 0.0
+        if self.ingeschakeld:
+            # Mix al ná de limiter. Trek uitsluitend de ongewenste
+            # microfoonmonitoring af voor een onafhankelijke schuif.
+            lokaal = totale_mix.copy()
+            lokaal -= bewerkte_stem * (1.0 - volume)
+        else:
+            lokaal = bewerkte_stem.copy()
+            lokaal *= volume
+        np.nan_to_num(lokaal, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+        np.clip(lokaal, -0.95, 0.95, out=lokaal)
+        if len(self._klaarstaande_blokken) == self._klaarstaande_blokken.maxlen:
+            self.aantal_overgelopen_blokken += 1
+        self._klaarstaande_blokken.append(lokaal)
 
     def maak_monitorbuffer_leeg(self) -> None:
         # Niet rechtstreeks aan _restblok of _restpositie komen: de audio-

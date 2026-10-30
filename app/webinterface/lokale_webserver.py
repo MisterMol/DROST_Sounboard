@@ -29,15 +29,17 @@ from uuid import UUID, uuid4
 
 from app.audio.mp3_en_wav_fragmenten import controleer_of_geluidsbestand_gebruikt_mag_worden
 from app.webinterface.api_foutantwoorden import maak_webfoutantwoord, maak_webantwoord_voor_onbekende_route
+from app.webinterface.gebruikersmeldingen import gebruikersmelding
 from app.audio.mp4_verwerken import controleer_of_mp4_audio_en_video_bevat
 from app.diagnostiek.logboek import schrijf_auditgebeurtenis
 from app.webinterface.bediening_van_de_audiomotor import WebbedieningVanDrostSoundboard
 from app.webinterface.favorieten_en_instellingen import controleer_favorietplek
+from app.webinterface.dashboardvoorkeuren import Dashboardvoorkeuren
 
 STATISCHE_MAP = Path(__file__).resolve().parent / 'statisch'
 TOEGESTANE_AFBEELDINGEN = frozenset({'.png', '.jpg', '.jpeg', '.gif', '.webp'})
 GROOTSTE_AUDIO_UPLOAD_IN_BYTES = 250 * 1024 * 1024
-GROOTSTE_BIBLIOTHEEK_ARCHIEF_BYTES = 512 * 1024 * 1024
+GROOTSTE_BIBLIOTHEEK_ARCHIEF_BYTES = 1024 * 1024 * 1024 + 8 * 1024 * 1024
 GROOTSTE_AFBEELDING_IN_BYTES = 8 * 1024 * 1024
 GROOTSTE_JSON_IN_BYTES = 65536
 MEDIA_UITVOERBLOK_BYTES = 256 * 1024
@@ -76,6 +78,8 @@ class LokaleWebserverVanDrostSoundboard(ThreadingHTTPServer):
     def __init__(self, adres: tuple[str, int], bediening: WebbedieningVanDrostSoundboard):
         super().__init__(adres, DrostVerzoekAfhandeling)
         self.bediening = bediening
+        self.afsluitverzoek = None
+        self.wordt_afgesloten = threading.Event()
         self.schrijf_token = secrets.token_urlsafe(32)
         # Elke browser heeft hooguit één SSE-verbinding. Begrenzing voorkomt
         # dat onbedoeld veel tabbladen de kleine lokale server overbelasten.
@@ -93,8 +97,18 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
     server: LokaleWebserverVanDrostSoundboard
     protocol_version = 'HTTP/1.1'
 
+    def handle(self) -> None:
+        """Een verdwenen client is geen serverfout; onverwachte fouten blijven zichtbaar."""
+        try:
+            super().handle()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # Ook parse_request/send_error kan schrijven nadat een client is gestopt.
+            # Stop uitsluitend deze verbinding; verzoekvalidatie blijft ongewijzigd.
+            self.close_connection = True
+
+
     def log_message(self, formaat: str, *args: Any) -> None:
-        # Elke 400 ms is er een statusverzoek. Die apart loggen zou
+        # Trage statuscontroles en snelle EventSource-metingen loggen we niet per verzoek.
         # software.jsonl razendsnel laten groeien. Echte fouten loggen we wel.
         pass
 
@@ -106,7 +120,7 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'")
         for naam, waarde in (extra_koppen or {}).items():
             self.send_header(naam, waarde)
         self.end_headers()
@@ -234,6 +248,10 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 f'http://localhost:{self.server.server_port}',
             }:
                 raise OngeldigWebverzoek('WEB-023: verzoek kwam niet uit het lokale dashboard.')
+            if (getattr(self.server, 'wordt_afgesloten', None) is not None
+                    and self.server.wordt_afgesloten.is_set()
+                    and urlsplit(self.path).path != '/api/app/afsluiten'):
+                raise OngeldigWebverzoek('WEB-081: DrostSoundboard wordt afgesloten.')
 
     def _lees_invoer_json(self) -> dict[str, Any]:
         if not self.headers.get('Content-Type', '').startswith('application/json'):
@@ -305,6 +323,9 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
             self.close_connection = True
             return
         antwoord = maak_webfoutantwoord(fout, actie)
+        # HTTP-status, oorzaakcode en logreferentie blijven behouden.
+        antwoord.inhoud['fout'] = gebruikersmelding(
+            fout, code=antwoord.inhoud.get('oorzaakcode'), http_status=antwoord.http_status)
         # Eén logreferentie koppelt de fout in de browser aan zijn volledige
         # traceback in software.jsonl. De gebruiker ziet geen interne paden.
         self.server.bediening.logboeken.softwarelogboek.error(
@@ -356,7 +377,7 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
             self.wfile.write(b'retry: 1000\n\n')
             self.wfile.flush()
             eindtijd = time.monotonic() + 45
-            while time.monotonic() < eindtijd:
+            while time.monotonic() < eindtijd and not self.server.wordt_afgesloten.is_set():
                 # Metingen, geen samples en geen auditregels of databasewerk.
                 niveaus = self.server.bediening.geef_directe_audioniveaus()
                 bericht = ('event: niveau\ndata: '
@@ -365,6 +386,9 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 self.wfile.write(bericht.encode('utf-8'))
                 self.wfile.flush()
                 time.sleep(1 / 30)
+            if self.server.wordt_afgesloten.is_set():
+                self.wfile.write(b'event: app\ndata: {"wordt_afgesloten":true}\n\n')
+                self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
             # Wegnavigeren of een tabblad sluiten is geen softwarefout.
             pass
@@ -376,10 +400,21 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
         pad = urlsplit(self.path).path
         try:
             self._controleer_herkomst(False)
-            if pad == '/':
+            if pad == '/api/app':
+                from app.diagnostiek.logboek import VERSIE_VAN_DE_APP
+                self._stuur_json(200, {
+                    'versie': VERSIE_VAN_DE_APP,
+                    'afsluiten_ondersteund': self.server.afsluitverzoek is not None,
+                    'wordt_afgesloten': self.server.wordt_afgesloten.is_set(),
+                })
+            elif pad == '/':
                 pagina = (STATISCHE_MAP / 'dashboard.html').read_text(encoding='utf-8')
                 pagina = pagina.replace('__DROST_TOKEN__', html.escape(self.server.schrijf_token, quote=True))
                 self._stuur_bytes(200, pagina.encode('utf-8'), 'text/html; charset=utf-8')
+            elif pad in ('/drost-logo.svg', '/drost-logo.png', '/favicon.ico'):
+                typen = {'/drost-logo.svg': 'image/svg+xml', '/drost-logo.png': 'image/png',
+                         '/favicon.ico': 'image/x-icon'}
+                self._stuur_bytes(200, (STATISCHE_MAP / pad.lstrip('/')).read_bytes(), typen[pad])
             elif pad == '/stijl.css':
                 self._stuur_bytes(200, (STATISCHE_MAP / 'stijl.css').read_bytes(), 'text/css; charset=utf-8')
             elif pad == '/dashboard.js':
@@ -395,8 +430,43 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 # Dit endpoint bevat geen gegevens van gebruikers of microfoons.
                 from app.diagnostiek.logboek import VERSIE_VAN_DE_APP
                 self._stuur_json(200, {'versie': VERSIE_VAN_DE_APP, 'proces_id': os.getpid()})
+            elif pad == '/api/stemkeuze':
+                self._stuur_json(200, self.server.bediening.geef_stemkeuze())
+            elif pad == '/api/stemkeuze/bron':
+                self._controleer_herkomst(True)
+                if self.server.wordt_afgesloten.is_set():
+                    raise OngeldigWebverzoek('De app wordt afgesloten.')
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) != {'spreker', 'verzoek'} or any(len(v) != 1 for v in query.values()):
+                    raise OngeldigWebverzoek('Kies Bob of Elise.')
+                from app.audio.natuurlijke_stem.voorbeeld import controleer_verzoek
+                controleer_verzoek(query['verzoek'][0])
+                if query['spreker'][0] not in ('bob', 'elise'):
+                    raise OngeldigWebverzoek('Kies Bob of Elise.')
+                wav = self.server.bediening.maak_stemkeuze_bron(query['spreker'][0], query['verzoek'][0])
+                self._stuur_bytes(200, wav, 'audio/wav')
+            elif pad == '/api/stemkeuze/voorbeeld':
+                self._controleer_herkomst(True)
+                if self.server.wordt_afgesloten.is_set():
+                    raise OngeldigWebverzoek('De app wordt afgesloten.')
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) != {'spreker','keuze','verzoek'} or any(len(v)!=1 for v in query.values()):
+                    raise OngeldigWebverzoek('Kies een stem en Bob of Elise.')
+                from app.audio.natuurlijke_stem.voorbeeld import controleer_verzoek
+                controleer_verzoek(query['verzoek'][0])
+                if query['spreker'][0] not in ('bob','elise'):
+                    raise OngeldigWebverzoek('Kies Bob of Elise.')
+                wav = self.server.bediening.maak_stemkeuze_voorbeeld(
+                    query['spreker'][0],query['keuze'][0],query['verzoek'][0])
+                self._stuur_bytes(200,wav,'audio/wav')
+            elif pad == '/api/natuurlijke-stem':
+                self._stuur_json(200, self.server.bediening.geef_natuurlijke_stem_status())
+            elif pad == '/api/natuurlijke-stem/rapport':
+                self._stuur_json(200, self.server.bediening.geef_natuurlijke_stem_rapport())
             elif pad == '/api/status':
-                self._stuur_json(200, self.server.bediening.geef_huidige_webstatus())
+                status = self.server.bediening.geef_huidige_webstatus()
+                status['app_wordt_afgesloten'] = self.server.wordt_afgesloten.is_set()
+                self._stuur_json(200, status)
             elif pad == '/api/apparaten':
                 microfoons = self.server.bediening.geef_apparaten_voor_de_webpagina()
                 self._stuur_json(200, {
@@ -425,10 +495,51 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                                            'combinaties': {}, 'mislukte_registraties': {}})
                 else:
                     self._stuur_json(200, sneltoetsbediening.geef_huidige_instellingen())
+            elif re.fullmatch(r'/api/geluiden/[0-9a-f-]{36}/preview-normalisatie', pad):
+                # Decode kan CPU kosten. Een eigen token en lokale Origin
+                # verhinderen dat andere websites dit endpoint misbruiken.
+                self._controleer_herkomst(True)
+                geluid_id = self._controleer_geluids_id(pad.split('/')[3])
+                item = self.server.bediening.zoek_geluid_met_id(geluid_id)
+                veiligemap = (self.server.media_map / 'geluiden').resolve()
+                if not item.bestandspad.resolve().is_relative_to(veiligemap):
+                    raise OngeldigWebverzoek('NORM-008: preview is alleen voor beheerde mediabestanden.')
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) - {'begin', 'duur', 'volume'} or any(len(v) != 1 for v in query.values()):
+                    raise OngeldigWebverzoek('NORM-006: ongeldige previewparameters.')
+                try:
+                    begin = float(query['begin'][0]) if 'begin' in query else None
+                    duur = float(query['duur'][0]) if 'duur' in query else None
+                    volume = float(query['volume'][0]) if 'volume' in query else None
+                except (TypeError, ValueError, IndexError) as fout:
+                    raise OngeldigWebverzoek('NORM-007: ongeldige beginpositie of duur.') from fout
+                self._stuur_json(200, self.server.bediening.geef_preview_normalisatie(geluid_id, begin, duur, volume))
+            elif pad == '/api/instellingen/normalisatie':
+                self._stuur_json(200, {'stand': self.server.bediening.favorieten.geef_normalisatiestand()})
+            elif pad == '/api/instellingen/effectvolume':
+                self._stuur_json(200, {'percentage': self.server.bediening.favorieten.geef_algemeen_effectvolume()})
+            elif pad == '/api/instellingen/pieklimiter':
+                self._stuur_json(200, {'ingeschakeld': self.server.bediening.favorieten.geef_limiterstand()})
+            elif pad == '/api/instellingen/stemprofiel':
+                self._stuur_json(200, self.server.bediening.geef_steminstellingen())
+            elif pad == '/api/stemmen/voorbeeld':
+                # Kan CPU kosten: alleen het vertrouwde dashboard mag renderen.
+                self._controleer_herkomst(True)
+                query = parse_qs(urlsplit(self.path).query)
+                if set(query) != {'spreker'} or len(query['spreker']) != 1:
+                    raise OngeldigWebverzoek('STEM-059: kies Bob of Elise.')
+                wav = self.server.bediening.maak_voorbeeldstem_wav(query['spreker'][0])
+                self._stuur_bytes(200, wav, 'audio/wav')
+            elif pad == '/api/instellingen/dashboard':
+                opslag = Dashboardvoorkeuren(self.server.bediening.geluidenbibliotheek.databasepad)
+                self._stuur_json(200, opslag.geef())
             elif pad == '/api/instellingen/weergave':
                 self._stuur_json(200, self.server.bediening.recent_en_weergave.geef_weergave())
             elif pad == '/api/instellingen/thema-profielen':
                 self._stuur_json(200, {'profielen': self.server.bediening.recent_en_weergave.geef_eigen_themaprofielen()})
+            elif pad == '/api/bibliotheek/exportoverzicht':
+                from app.webinterface.bibliotheek_archieven import overzicht_volledige_bibliotheek
+                self._stuur_json(200, overzicht_volledige_bibliotheek(self.server.bediening))
             elif pad == '/api/bibliotheek/exporteer':
                 from app.webinterface.bibliotheek_archieven import maak_draagbaar_bibliotheekarchief
                 # Een download is een leesverzoek. Stuur de ZIP direct in blokken:
@@ -480,7 +591,56 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
         try:
             self._controleer_herkomst(True)
             bediening = self.server.bediening
-            if pad == '/api/verbinden':
+            if pad == '/api/app/afsluiten':
+                gegevens = self._lees_invoer_json()
+                if gegevens != {'bevestiging': 'AFSLUITEN'}:
+                    self._stuur_json(400, {'fout': 'Bevestig eerst dat je de app wilt afsluiten.'})
+                    return
+                verzoek = self.server.afsluitverzoek
+                if verzoek is None:
+                    self._stuur_json(409, {'fout': 'Sluit deze uitvoering af via het venster waarin je de app hebt gestart.'})
+                    return
+                self.server.wordt_afgesloten.set()
+                try:
+                    self._stuur_json(202, {'melding': 'DrostSoundboard wordt afgesloten.'})
+                    self.wfile.flush()
+                finally:
+                    # Ook als de browser het antwoord niet meer ontvangt.
+                    verzoek.set()
+                return
+            elif pad == '/api/stemkeuze':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'keuze'} or not isinstance(gegevens['keuze'], str):
+                    raise OngeldigWebverzoek('Kies een beschikbaar stemprofiel.')
+                self._stuur_json(200, bediening.kies_stem(gegevens['keuze']))
+            elif pad == '/api/stemkeuze/actief':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'aan'} or type(gegevens['aan']) is not bool:
+                    raise OngeldigWebverzoek('Kies aan of uit voor de stemvervormer.')
+                self._stuur_json(200, bediening.schakel_stemkeuze(gegevens['aan']))
+            elif pad == '/api/stemkeuze/voorbeeld/stop':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'verzoek'}:
+                    raise OngeldigWebverzoek('Kies het voorbeeld om te stoppen.')
+                from app.audio.natuurlijke_stem.voorbeeld import controleer_verzoek
+                controleer_verzoek(gegevens['verzoek'])
+                self._stuur_json(200, bediening.stop_stemkeuze_voorbeeld(gegevens['verzoek']))
+            elif pad == '/api/natuurlijke-stem':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'aan'} or type(gegevens['aan']) is not bool:
+                    raise OngeldigWebverzoek('Kies aan of uit voor de proefstem.')
+                self._stuur_json(202, bediening.stel_natuurlijke_stem_in(gegevens['aan']))
+            elif pad == '/api/natuurlijke-stem/beheer':
+                gegevens = self._lees_invoer_json()
+                actie = gegevens.get('actie')
+                velden = {'actie', 'bufferprofiel'} if actie == 'buffer' else {'actie'}
+                if set(gegevens) != velden or actie not in ('test', 'stop_test', 'buffer'):
+                    raise OngeldigWebverzoek('Kies een geldige actie voor de proefstem.')
+                if actie == 'buffer' and (not isinstance(gegevens['bufferprofiel'], str) or
+                        gegevens['bufferprofiel'] not in ('direct', 'gebalanceerd', 'stabiel')):
+                    raise OngeldigWebverzoek('Kies Direct, Gebalanceerd of Extra buffer.')
+                self._stuur_json(202, bediening.beheer_natuurlijke_stem(actie, gegevens.get('bufferprofiel')))
+            elif pad == '/api/verbinden':
                 gegevens = self._lees_invoer_json()
                 bediening.verbind_met_microfoon(gegevens.get('microfoonnummer'))
                 self._stuur_json(202, {'melding': 'Verbinding wordt opgebouwd.'})
@@ -490,12 +650,108 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 self._stuur_json(202, {'melding': 'Verbinding wordt verbroken.'})
             elif pad == '/api/effecten':
                 gegevens = self._lees_invoer_json()
-                bediening.zet_soundboard_aan_of_uit(gegevens.get('aan'))
-                self._stuur_json(202, {'melding': 'Soundboardstand wordt aangepast.'})
+                if set(gegevens) != {'aan'} or type(gegevens.get('aan')) is not bool:
+                    raise OngeldigWebverzoek('Kies aan of uit voor geluidseffecten.')
+                bediening.zet_soundboard_aan_of_uit(gegevens['aan'])
+                # De mixer gebruikt een opdrachtenwachtrij. Wacht kort BUITEN
+                # de audiocallback op de echte stand, niet alleen op acceptatie.
+                einde = time.monotonic() + 0.6
+                status = bediening.mixer.geef_huidige_status()
+                while (status.toestand == 'verbonden'
+                       and status.geluidseffecten_aan != gegevens['aan']
+                       and time.monotonic() < einde
+                       and not self.server.wordt_afgesloten.is_set()):
+                    time.sleep(0.02)
+                    status = bediening.mixer.geef_huidige_status()
+                klaar = status.geluidseffecten_aan == gegevens['aan']
+                self._stuur_json(200 if klaar else 202, {
+                    'effecten_aan': bool(status.geluidseffecten_aan),
+                    'toestand': status.toestand, 'in_behandeling': not klaar})
+            elif pad == '/api/speler/volume':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'percentage'}:
+                    raise OngeldigWebverzoek('VOLUME-003: ongeldige volumeopdracht.')
+                percentage = bediening.stel_tijdelijk_effectvolume_in(gegevens['percentage'])
+                self._stuur_json(200, {'percentage': percentage})
+            elif pad == '/api/speler/basisvolume':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'afspeelbeurt_id', 'geluid_id', 'percentage'}:
+                    raise OngeldigWebverzoek('VOLUME-003: ongeldige volumeopdracht.')
+                percentage = bediening.stel_lopend_basisvolume_in(
+                    gegevens['afspeelbeurt_id'], gegevens['geluid_id'], gegevens['percentage'])
+                self._stuur_json(200, {'percentage': percentage,
+                                      'afspeelbeurt_id': gegevens['afspeelbeurt_id']})
+            elif pad == '/api/speler/live':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) == {'afspeelbeurt_id', 'positie'}:
+                    bediening.bedien_lopend_geluid(gegevens['afspeelbeurt_id'], fractie=gegevens['positie'])
+                    self._stuur_json(202, {'melding': 'Afspeelpositie wordt aangepast.'})
+                elif set(gegevens) == {'afspeelbeurt_id', 'herhalen'}:
+                    bediening.bedien_lopend_geluid(gegevens['afspeelbeurt_id'], herhalen=gegevens['herhalen'])
+                    self._stuur_json(202, {'melding': 'Herhalen wordt aangepast.'})
+                else:
+                    raise OngeldigWebverzoek('SPELER-005: ongeldige speleropdracht.')
             elif pad == '/api/stop':
                 self._lees_invoer_json()
                 bediening.stop_het_huidige_geluid()
                 self._stuur_json(202, {'melding': 'Geluid wordt gestopt. Microfoon blijft aan.'})
+            elif pad == '/api/instellingen/stemprofiel':
+                gegevens = self._lees_invoer_json()
+                profiel = bediening.stel_stemprofiel_in(gegevens.get('profiel'))
+                self._stuur_json(200, {'profiel': profiel})
+            elif pad == '/api/instellingen/stemactief':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'aan'}:
+                    raise OngeldigWebverzoek('STEM-083: geef alleen de aan/uitstand op.')
+                self._stuur_json(200, {'actief': bediening.stel_stemvervormer_aan_in(gegevens['aan'])})
+            elif pad == '/api/instellingen/stemvoorbeeldspreker':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'spreker'}:
+                    raise OngeldigWebverzoek('STEM-060: geef een spreker op.')
+                self._stuur_json(200, bediening.bewaar_voorbeeldspreker(gegevens['spreker']))
+            elif pad == '/api/instellingen/stemparameters':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'profiel', 'parameters'}:
+                    raise OngeldigWebverzoek('STEM-061: ongeldige effectinstellingen.')
+                self._stuur_json(200, bediening.stel_stemparameters_in(gegevens['profiel'], gegevens['parameters']))
+            elif pad == '/api/instellingen/stemparameters/herstel':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'profiel'}:
+                    raise OngeldigWebverzoek('STEM-062: kies een profiel.')
+                self._stuur_json(200, bediening.herstel_stemparameters(gegevens['profiel']))
+            elif pad == '/api/instellingen/stemparameters/herstel-alles':
+                gegevens = self._lees_invoer_json()
+                if gegevens:
+                    raise OngeldigWebverzoek('STEM-063: geen extra gegevens verwacht.')
+                self._stuur_json(200, bediening.herstel_stemparameters(None))
+            elif pad == '/api/instellingen/stemintensiteit':
+                gegevens = self._lees_invoer_json()
+                self._stuur_json(200, bediening.stel_stemintensiteit_in(
+                    gegevens.get('profiel'), gegevens.get('intensiteit')))
+            elif pad == '/api/instellingen/stemintensiteit/herstel':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'profiel'} or gegevens['profiel'] is None:
+                    raise OngeldigWebverzoek('STEM-032: kies het profiel om te herstellen.')
+                self._stuur_json(200, bediening.herstel_stemintensiteit(gegevens['profiel']))
+            elif pad == '/api/instellingen/stemintensiteit/herstel-alles':
+                gegevens = self._lees_invoer_json()
+                if gegevens:
+                    raise OngeldigWebverzoek('STEM-033: herstel alle profielen zonder extra gegevens.')
+                self._stuur_json(200, bediening.herstel_stemintensiteit(None))
+            elif pad == '/api/stemvoorbeeld/start':
+                gegevens = self._lees_invoer_json()
+                resultaat = bediening.begin_stemvoorbeeld(gegevens.get('microfoonnummer'),
+                                                           gegevens.get('uitvoernummer'))
+                self._stuur_json(200, resultaat)
+            elif pad == '/api/stemvoorbeeld/stop':
+                self._lees_invoer_json()
+                self._stuur_json(200, bediening.stop_stemvoorbeeld())
+            elif pad == '/api/monitor-stem':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'aan', 'volume'}:
+                    raise OngeldigWebverzoek('MON-012: ongeldige stemmonitorinstellingen.')
+                instelling = bediening.stel_eigen_stem_monitor_in(gegevens['aan'], gegevens['volume'])
+                self._stuur_json(200, instelling)
             elif pad == '/api/monitor':
                 gegevens = self._lees_invoer_json()
                 bediening.stel_meeluisteren_in(gegevens.get('aan'), gegevens.get('uitvoernummer'))
@@ -542,6 +798,15 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                     'aantal_geluiden': len(nummers) if nummers is not None else 'alle',
                 })
                 self._stuur_tijdelijk_downloadbestand(tijdelijk_zip, 'DrostSoundboard_bibliotheek.zip')
+            elif pad == '/api/bibliotheek/audiopack-bekijk':
+                from app.webinterface.bibliotheek_archieven import bekijk_inhoud_audiopack
+                tijdelijk = self._lees_een_bestand_in_blokken(
+                    self.server.media_map / 'tijdelijk', '.zip', GROOTSTE_BIBLIOTHEEK_ARCHIEF_BYTES)
+                try:
+                    self._stuur_json(200, bekijk_inhoud_audiopack(tijdelijk,
+                        bediening.geluidenbibliotheek.geef_alle_geluiden()))
+                finally:
+                    tijdelijk.unlink(missing_ok=True)
             elif pad == '/api/bibliotheek/importeer':
                 self._importeer_bibliotheekarchief()
             elif pad == '/api/bibliotheek/groep-toewijzen':
@@ -552,6 +817,16 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 schrijf_auditgebeurtenis(bediening.logboeken.auditlogboek,
                     'meerdere_geluiden_in_groep_geplaatst', {'groep_id': groepsnummer, 'aantal': aantal})
                 self._stuur_json(200, {'melding': f'{aantal} geluiden aan groep gekoppeld.', 'aantal': aantal})
+            elif pad == '/api/bibliotheek/groep-losmaken':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'groep_id', 'geluid_ids'}:
+                    raise OngeldigWebverzoek('GROEP-020: kies een map en geselecteerde geluiden.')
+                aantal = bediening.groepen.verwijder_meerdere_geluiden_uit_groep(
+                    gegevens['groep_id'], gegevens['geluid_ids'])
+                schrijf_auditgebeurtenis(bediening.logboeken.auditlogboek,
+                    'meerdere_geluiden_uit_groep_gehaald', {'groep_id': gegevens['groep_id'], 'aantal': aantal})
+                self._stuur_json(200, {'melding': f'{aantal} geluiden uit de map gehaald. Ze blijven in de bibliotheek.',
+                    'aantal': aantal})
             elif pad == '/api/bibliotheek/volume':
                 gegevens = self._lees_invoer_json()
                 # Alleen een selectie wordt veranderd. Bestaande persoonlijke
@@ -563,6 +838,11 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                     'meerdere_geluidsvolumes_gewijzigd', {'aantal': aantal,
                     'volume': gegevens.get('volume')})
                 self._stuur_json(200, {'melding': f'{aantal} geluiden aangepast naar 100%.', 'aantal': aantal})
+            elif pad == '/api/bibliotheek/leegmaken':
+                gegevens = self._lees_invoer_json()
+                if set(gegevens) != {'bevestiging'} or gegevens['bevestiging'] != 'BEVESTIG':
+                    raise OngeldigWebverzoek('BIB-080: typ BEVESTIG om een lege bibliotheek te starten.')
+                self._stuur_json(200, bediening.maak_bibliotheek_leeg(gegevens['bevestiging']))
             elif pad == '/api/bibliotheek/verwijder-selectie':
                 gegevens = self._lees_invoer_json()
                 if gegevens.get('bevestiging') != 'VERWIJDER':
@@ -580,6 +860,29 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 if sneltoetsbediening is None:
                     raise OngeldigWebverzoek('HOTKEY-030: start de desktopversie voor globale sneltoetsen.')
                 self._stuur_json(200, sneltoetsbediening.pas_instellingen_aan(gegevens))
+            elif pad == '/api/instellingen/normalisatie':
+                gegevens = self._lees_invoer_json()
+                stand = bediening.favorieten.bewaar_normalisatiestand(gegevens.get('stand'))
+                schrijf_auditgebeurtenis(bediening.logboeken.auditlogboek,
+                    'geluidsnormalisatie_ingesteld', {'stand': stand})
+                self._stuur_json(200, {'stand': stand})
+            elif pad == '/api/instellingen/effectvolume':
+                gegevens = self._lees_invoer_json()
+                percentage = bediening.stel_algemeen_effectvolume_in(gegevens.get('percentage'))
+                self._stuur_json(200, {'percentage': percentage})
+            elif pad == '/api/instellingen/pieklimiter':
+                gegevens = self._lees_invoer_json()
+                aan = bediening.stel_pieklimiter_in(gegevens.get('ingeschakeld'))
+                self._stuur_json(200, {'ingeschakeld': aan})
+            elif pad == '/api/instellingen/dashboard':
+                gegevens = self._lees_invoer_json()
+                try:
+                    opgeslagen = Dashboardvoorkeuren(bediening.geluidenbibliotheek.databasepad).bewaar(gegevens)
+                except ValueError as fout:
+                    raise OngeldigWebverzoek(str(fout)) from fout
+                schrijf_auditgebeurtenis(bediening.logboeken.auditlogboek,
+                    'dashboardindeling_aangepast', {'indeling': opgeslagen['indeling']})
+                self._stuur_json(200, opgeslagen)
             elif pad == '/api/instellingen/weergave':
                 gegevens = self._lees_invoer_json()
                 opgeslagen = bediening.recent_en_weergave.bewaar_weergave(gegevens)
@@ -612,11 +915,16 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 self._stuur_json(200, {'melding': 'Recent gebruikte groep bijgewerkt.'})
             elif pad == '/api/groepen':
                 gegevens = self._lees_invoer_json()
-                groeps_id = bediening.groepen.maak_groep(gegevens.get('naam'))
+                groeps_id = bediening.groepen.maak_groep(gegevens.get('naam'), gegevens.get('ouder_id'))
                 schrijf_auditgebeurtenis(bediening.logboeken.auditlogboek, 'geluidsgroep_aangemaakt', {
                     'groep_id': groeps_id, 'naam': gegevens.get('naam'),
                 })
                 self._stuur_json(201, {'groep_id': groeps_id, 'melding': 'Groep aangemaakt.'})
+            elif re.fullmatch(r'/api/groepen/[0-9a-f-]{36}/verplaats', pad):
+                groep_id = pad.split('/')[3]
+                gegevens = self._lees_invoer_json()
+                bediening.groepen.verplaats_groep(groep_id, gegevens.get('ouder_id'))
+                self._stuur_json(200, {'melding': 'Map verplaatst.'})
             elif re.fullmatch(r'/api/groepen/[0-9a-f-]{36}', pad):
                 groep_id = pad.split('/')[3]
                 gegevens = self._lees_invoer_json()
@@ -658,9 +966,9 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
                 })
                 self._stuur_json(200, {'melding': 'Geluid aan groep toegevoegd.'})
             elif re.fullmatch(r'/api/geluiden/[0-9a-f-]{36}/afspelen', pad):
-                self._lees_invoer_json()
+                gegevens = self._lees_invoer_json()
                 geluid_id = self._controleer_geluids_id(pad.split('/')[3])
-                bediening.speel_geluid_uit_de_bibliotheek(geluid_id)
+                bediening.speel_geluid_uit_de_bibliotheek(geluid_id, gegevens)
                 self._stuur_json(202, {'melding': 'Geluid wordt voorbereid en afgespeeld.'})
             elif re.fullmatch(r'/api/geluiden/[0-9a-f-]{36}/instellingen', pad):
                 geluid_id = self._controleer_geluids_id(pad.split('/')[3])
@@ -766,8 +1074,19 @@ class DrostVerzoekAfhandeling(BaseHTTPRequestHandler):
             self.server.media_map / 'tijdelijk', '.zip', GROOTSTE_BIBLIOTHEEK_ARCHIEF_BYTES,
         )
         try:
+            query = parse_qs(urlsplit(self.path).query)
+            selectie = None
+            if 'selectie' in query:
+                tekst = query['selectie'][0]
+                if len(tekst) > 2500 or not re.fullmatch(r'(?:[0-9]+(?:,[0-9]+)*)?', tekst):
+                    raise OngeldigWebverzoek('ARCH-023: ongeldige importselectie.')
+                selectie = [int(deel) for deel in tekst.split(',')] if tekst else []
+            skip = query.get('dubbelen', ['overslaan']) == ['overslaan']
+            if query.get('dubbelen', ['overslaan']) not in (['overslaan'], ['toestaan']):
+                raise OngeldigWebverzoek('ARCH-026: ongeldige dubbelinstelling.')
             resultaat = importeer_draagbaar_bibliotheekarchief(
                 self.server.bediening, self.server.media_map, tijdelijk_pad,
+                selectie=selectie, sla_dubbelen_over=skip,
             )
             schrijf_auditgebeurtenis(self.server.bediening.logboeken.auditlogboek,
                                    'bibliotheek_geimporteerd', {'aantal': resultaat['aantal']})

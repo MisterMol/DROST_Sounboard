@@ -2,6 +2,8 @@
 
 Dit is de korte wegwijzer voor iemand die de code voor het eerst opent.
 
+**Actuele versie: 6.1.0 RC4.** Het dashboard heeft drie opgeslagen indelingen (`dashboardvoorkeuren.py`), terwijl de aparte beheerbibliotheek onder de navigatieknop Bibliotheek blijft. Weergaveprofielen blijven afzonderlijk bewaard. De Windows Setup wordt gebouwd met PyInstaller en Velopack; eerdere faseverslagen zijn geschiedenis.
+
 ## Wat gebeurt er als je op een geluid klikt?
 
 1. `app/webinterface/statisch/dashboard.js` leest de klik en roept via **`vraagAanPython()`** de lokale API aan.
@@ -56,4 +58,4 @@ Een optional JavaScript-regressietest draait met Node als die op de ontwikkelcom
 
 ## Bekende vervolgstappen
 
-De hoofdfile `dashboard.js` en de HTTP-router zijn nog groot. Splits ze later functie voor functie uit met regressietests. Begin niet met een grote herschrijving van de audiomixer terwijl de Windows-verbinding stabiel is. **Volgende fase: 6.0, Windows-installer en schone build**, na verificatie van versie 5.9.4 op echte hardware.
+De hoofdfile `dashboard.js` en de HTTP-router zijn nog groot. Splits ze later functie voor functie uit met regressietests. Begin niet met een grote herschrijving van de audiomixer terwijl de Windows-verbinding stabiel is. **Voor RC4:** test de nieuw gebouwde installer op een schone Windowscomputer en controleer de distributierechten van de meegeleverde modelbestanden. De Windows-installatie gebruikt inmiddels Velopack.

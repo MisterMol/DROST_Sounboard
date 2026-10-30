@@ -81,6 +81,9 @@ class TestZonderZwarteVensters(unittest.TestCase):
 @dataclass(frozen=True)
 class _NepAudio:
     naam_van_het_geluid: str = 'nep-geluid'
+    ingesteld_volume: float = 1.0
+    normalisatiestand: str = 'uit'
+    normalisatiefactor: float = 1.0
 
 
 class TestSnelAchterElkaarKlikken(unittest.TestCase):

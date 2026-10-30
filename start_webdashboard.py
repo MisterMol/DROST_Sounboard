@@ -17,6 +17,10 @@ from app.diagnostiek.logboek import (
 
 
 def start_het_lokale_webdashboard() -> int:
+    if sys.platform == 'win32':
+        # Geen tweede onafhankelijke mixer naast de systeemvakapp.
+        from start_desktop import start_drostsoundboard_als_desktopprogramma
+        return start_drostsoundboard_als_desktopprogramma(open_browser=True)
     try:
         logboeken = maak_logboeken_klaar()
     except OSError as fout:

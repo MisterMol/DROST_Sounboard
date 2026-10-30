@@ -1,5 +1,7 @@
 # DrostSoundboard bijwerken tijdens ontwikkeling
 
+**Let op voor RC4:** dit document beschrijft de vroegere ontwikkel-updater 1.2. Voor een geïnstalleerde Windowsversie gebruik je de nieuwe Velopack Setup uit de GitHub Releases. De normale gebruikershandleiding staat in [INSTALLEREN.md](INSTALLEREN.md). Gebruik deze historische updater niet voor je vrienden.
+
 Dit is de **ontwikkel-updater 1.2**. Hij werkt vanuit de map waarin `start_desktop.py` staat. Er is nergens een Windows-gebruikersnaam, schijfletter of vaste projectlocatie ingesteld. Voor de latere publieke installer maken we een aparte release-updater.
 
 ## Eenmalig

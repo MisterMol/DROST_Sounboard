@@ -1,4 +1,4 @@
-name: Windows 6.0 releaseproef
+name: Windows 6.1 releaseproef
 
 on:
   workflow_dispatch:
@@ -33,7 +33,7 @@ jobs:
       - name: Installer en updatebestanden bewaren, nog niet publiceren
         uses: actions/upload-artifact@v4
         with:
-          name: DrostSoundboard-6.0-Windows-beta-proef
+          name: DrostSoundboard-6.1-Windows-beta-proef
           path: |
             release-velopack/*Setup.exe
             release-velopack/*full.nupkg

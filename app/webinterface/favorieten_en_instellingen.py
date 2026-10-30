@@ -12,10 +12,17 @@ from dataclasses import dataclass
 import math
 from pathlib import Path
 import sqlite3
+import re
 
 from app.audio.geluidenbibliotheek import bepaal_standaardlocatie_van_de_bibliotheek
+from app.audio.geluidsnormalisatie import controleer_normalisatiestand
+from app.audio.stemvervorming import (controleer_stemprofiel, controleer_stemintensiteit,
+                                     STANDAARD_INTENSITEITEN)
+from app.audio.stemparameters import standaard_parameters, controleer_parameters
+import json
 
 AANTAL_FAVORIETE_PLEKKEN = 15
+STANDAARD_SOUNDBOARDVOLUME = 75  # Rustiger beginvolume voor nieuwe installaties.
 
 
 class OngeldigeFavorietOfInstelling(ValueError):
@@ -69,6 +76,8 @@ class VasteFavorietenEnInstellingen:
         self.databasepad.parent.mkdir(parents=True, exist_ok=True)
         with self._open_database() as database:
             with database:
+                # Ook schemawijzigingen zijn atomair: geen halve migratie bij een fout.
+                database.execute("BEGIN IMMEDIATE")
                 database.execute('''CREATE TABLE IF NOT EXISTS favoriete_geluiden (
                     plek INTEGER PRIMARY KEY CHECK (plek BETWEEN 1 AND 15),
                     geluid_id TEXT NOT NULL UNIQUE REFERENCES geluiden(geluid_id) ON DELETE CASCADE
@@ -81,17 +90,275 @@ class VasteFavorietenEnInstellingen:
                     afbeelding TEXT,
                     beeldvoorkeur TEXT NOT NULL DEFAULT 'automatisch'
                 )''')
+                # Een algemene, optionele stand. We wijzigen geen bestaande
+                # clipinstellingen of opgeslagen volumewaarden bij een upgrade.
+                database.execute('''CREATE TABLE IF NOT EXISTS geluidsnormalisatie (
+                    sleutel INTEGER PRIMARY KEY CHECK (sleutel = 1),
+                    stand TEXT NOT NULL CHECK (stand IN ('uit', 'subtiel', 'normaal', 'sterk'))
+                )''')
+                self._maak_volume_tot_200_beschikbaar(database)
+                database.execute('''CREATE TABLE IF NOT EXISTS pieklimiter_instellingen (
+                    sleutel INTEGER PRIMARY KEY CHECK (sleutel = 1),
+                    ingeschakeld INTEGER NOT NULL CHECK (ingeschakeld IN (0, 1))
+                )''')
+                database.execute('''CREATE TABLE IF NOT EXISTS stemprofiel_instellingen (
+                    sleutel INTEGER PRIMARY KEY CHECK (sleutel = 1),
+                    profiel TEXT NOT NULL CHECK (profiel IN ('normaal', 'radio', 'robot', 'diep'))
+                )''')
+                # De bestaande tabel heeft een vaste CHECK op de oude 4 profielen.
+                # Die blijft intact; nieuwe keuzes en sterktes krijgen eigen tabellen.
+                # Zo verliezen bestaande gebruikers hun oorspronkelijke voorkeur niet.
+                database.execute('''CREATE TABLE IF NOT EXISTS stemprofiel_keuze_v2 (
+                    sleutel INTEGER PRIMARY KEY CHECK (sleutel = 1),
+                    profiel TEXT NOT NULL
+                )''')
+                database.execute('''CREATE TABLE IF NOT EXISTS stemprofiel_intensiteit (
+                    profiel TEXT PRIMARY KEY,
+                    intensiteit INTEGER NOT NULL CHECK (intensiteit BETWEEN 0 AND 100)
+                )''')
+                database.execute('''CREATE TABLE IF NOT EXISTS stemprofiel_parameters (
+                    profiel TEXT PRIMARY KEY, instellingen_json TEXT NOT NULL
+                )''')
+                database.execute('''CREATE TABLE IF NOT EXISTS stemvoorbeeld_spreker (
+                    sleutel INTEGER PRIMARY KEY CHECK(sleutel = 1),
+                    spreker TEXT NOT NULL CHECK(spreker IN ('bob','elise'))
+                )''')
+                database.execute('''CREATE TABLE IF NOT EXISTS stemvervormer_aan (
+                    sleutel INTEGER PRIMARY KEY CHECK (sleutel=1),
+                    aan INTEGER NOT NULL CHECK (aan IN (0,1))
+                )''')
+                database.execute('''CREATE TABLE IF NOT EXISTS eigen_stem_monitor (
+                    sleutel INTEGER PRIMARY KEY CHECK(sleutel = 1),
+                    aan INTEGER NOT NULL CHECK(aan IN (0, 1)),
+                    volume INTEGER NOT NULL CHECK(volume BETWEEN 1 AND 100)
+                )''')
                 # Bestaande bibliotheken verliezen geen instellingen. Alleen
                 # wanneer de kolom ontbreekt voegen we die eenmalig toe.
                 kolommen = {regel[1] for regel in database.execute('PRAGMA table_info(geluidsinstellingen)')}
                 if 'beeldvoorkeur' not in kolommen:
                     database.execute("ALTER TABLE geluidsinstellingen ADD COLUMN beeldvoorkeur TEXT NOT NULL DEFAULT 'automatisch'")
 
+    @staticmethod
+    def _maak_volume_tot_200_beschikbaar(database) -> None:
+        """Verruim alleen de volumetabel, met behoud van de oude rij als reservekopie.
+
+        De aanroeper houdt één SQLite-transactie vast. De bibliotheek, media en
+        individuele geluidsinstellingen worden niet opnieuw opgebouwd.
+        """
+        regel = database.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='algemeen_effectvolume'"
+        ).fetchone()
+        if regel and re.search(r'BETWEEN\s+0\s+AND\s+100\b', regel[0], re.IGNORECASE):
+            database.execute('ALTER TABLE algemeen_effectvolume RENAME TO algemeen_effectvolume_voor_beta411')
+            database.execute('''CREATE TABLE algemeen_effectvolume (
+                sleutel INTEGER PRIMARY KEY CHECK(sleutel = 1),
+                percentage INTEGER NOT NULL CHECK(percentage BETWEEN 0 AND 200)
+            )''')
+            database.execute('''INSERT INTO algemeen_effectvolume(sleutel, percentage)
+                SELECT sleutel, percentage FROM algemeen_effectvolume_voor_beta411''')
+        else:
+            database.execute('''CREATE TABLE IF NOT EXISTS algemeen_effectvolume (
+                sleutel INTEGER PRIMARY KEY CHECK(sleutel = 1),
+                percentage INTEGER NOT NULL CHECK(percentage BETWEEN 0 AND 200)
+            )''')
+
     def _open_database(self):
         """SQLite verwijdert gekoppelde favorieten alleen wanneer FK expliciet aan staat."""
         verbinding = sqlite3.connect(self.databasepad, timeout=10)
         verbinding.execute('PRAGMA foreign_keys = ON')
         return closing(verbinding)
+
+    def geef_stemvervormer_aan(self) -> bool:
+        # De live aan/uitstand is onafhankelijk van het geselecteerde profiel.
+        with self._open_database() as database:
+            regel = database.execute('SELECT aan FROM stemvervormer_aan WHERE sleutel=1').fetchone()
+        return bool(regel[0]) if regel else False
+
+    def bewaar_stemvervormer_aan(self, aan: bool) -> bool:
+        if type(aan) is not bool:
+            raise OngeldigeFavorietOfInstelling('STEM-081: aan moet true of false zijn.')
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO stemvervormer_aan(sleutel, aan) VALUES(1, ?)
+                    ON CONFLICT(sleutel) DO UPDATE SET aan=excluded.aan''', (int(aan),))
+        return aan
+
+    def geef_eigen_stem_monitor(self) -> dict:
+        with self._open_database() as database:
+            regel = database.execute(
+                'SELECT aan, volume FROM eigen_stem_monitor WHERE sleutel = 1'
+            ).fetchone()
+        return {'aan': bool(regel[0]), 'volume': regel[1]} if regel else {'aan': False, 'volume': 25}
+
+    def bewaar_eigen_stem_monitor(self, aan: bool, volume: int) -> dict:
+        if type(aan) is not bool or type(volume) is not int or not 1 <= volume <= 100:
+            raise OngeldigeFavorietOfInstelling('MON-010: kies aan of uit en volume 1 tot 100%.')
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO eigen_stem_monitor(sleutel, aan, volume)
+                    VALUES (1, ?, ?) ON CONFLICT(sleutel) DO UPDATE SET
+                    aan=excluded.aan, volume=excluded.volume''', (int(aan), volume))
+        return {'aan': aan, 'volume': volume}
+
+    def geef_normalisatiestand(self) -> str:
+        """Lees de ingestelde sterkte; bestaande gebruikers beginnen veilig met Uit."""
+        with self._open_database() as database:
+            gevonden = database.execute(
+                'SELECT stand FROM geluidsnormalisatie WHERE sleutel = 1'
+            ).fetchone()
+        return controleer_normalisatiestand(gevonden[0]) if gevonden else 'uit'
+
+    def bewaar_normalisatiestand(self, stand: str) -> str:
+        """Bewaar één algemene stand, zonder media of andere instellingen te wijzigen."""
+        stand = controleer_normalisatiestand(stand)
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO geluidsnormalisatie (sleutel, stand)
+                    VALUES (1, ?) ON CONFLICT(sleutel) DO UPDATE SET stand=excluded.stand''', (stand,))
+        return stand
+
+    def geef_algemeen_effectvolume(self) -> int:
+        """Bewaar expliciete keuzes; zonder keuze starten effecten op 75%."""
+        with self._open_database() as database:
+            regel = database.execute(
+                'SELECT percentage FROM algemeen_effectvolume WHERE sleutel = 1'
+            ).fetchone()
+        return int(regel[0]) if regel else STANDAARD_SOUNDBOARDVOLUME
+
+    def bewaar_algemeen_effectvolume(self, percentage: int) -> int:
+        """Bewaar een absoluut percentage, zonder individuele clipvolumes aan te passen."""
+        if type(percentage) is not int or not 0 <= percentage <= 200:
+            raise OngeldigeFavorietOfInstelling(
+                'VOLUME-001: soundboardvolume moet een heel percentage tussen 0 en 200 zijn.'
+            )
+        with self._open_database() as database:
+            with database:
+                database.execute("""INSERT INTO algemeen_effectvolume(sleutel, percentage)
+                    VALUES(1, ?) ON CONFLICT(sleutel) DO UPDATE SET
+                    percentage=excluded.percentage""", (percentage,))
+        return percentage
+
+    def geef_limiterstand(self) -> bool:
+        """Bestaande bibliotheken krijgen standaard veilige piekbeveiliging."""
+        with self._open_database() as database:
+            gevonden = database.execute(
+                'SELECT ingeschakeld FROM pieklimiter_instellingen WHERE sleutel = 1'
+            ).fetchone()
+        return bool(gevonden[0]) if gevonden else True
+
+    def bewaar_limiterstand(self, ingeschakeld: bool) -> bool:
+        """Bewaar alleen een echte bool, niet een JSON-string of een getal."""
+        if type(ingeschakeld) is not bool:
+            raise OngeldigeFavorietOfInstelling('FAV-020: limiter moet true of false zijn.')
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO pieklimiter_instellingen (sleutel, ingeschakeld)
+                    VALUES (1, ?) ON CONFLICT(sleutel) DO UPDATE SET ingeschakeld=excluded.ingeschakeld''',
+                    (int(ingeschakeld),))
+        return ingeschakeld
+
+    def geef_stemprofiel(self) -> str:
+        '''Geef nieuwe keuze terug; gebruik bij een upgrade eerst de oude waarde.'''
+        with self._open_database() as database:
+            regel = database.execute(
+                'SELECT profiel FROM stemprofiel_keuze_v2 WHERE sleutel = 1'
+            ).fetchone()
+            if not regel:
+                regel = database.execute(
+                    'SELECT profiel FROM stemprofiel_instellingen WHERE sleutel = 1'
+                ).fetchone()
+        return controleer_stemprofiel(regel[0]) if regel else 'normaal'
+
+    def bewaar_stemprofiel(self, profiel: str) -> str:
+        profiel = controleer_stemprofiel(profiel)
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO stemprofiel_keuze_v2 (sleutel, profiel)
+                    VALUES (1, ?) ON CONFLICT(sleutel) DO UPDATE SET profiel=excluded.profiel''',
+                    (profiel,))
+        return profiel
+
+    def geef_stemintensiteiten(self) -> dict[str, int]:
+        '''Retourneer ook defaults voor profielen die nog nooit zijn gewijzigd.'''
+        alle = dict(STANDAARD_INTENSITEITEN)
+        with self._open_database() as database:
+            regels = database.execute(
+                'SELECT profiel, intensiteit FROM stemprofiel_intensiteit'
+            ).fetchall()
+        for profiel, intensiteit in regels:
+            if profiel in alle:
+                alle[profiel] = controleer_stemintensiteit(intensiteit)
+        return alle
+
+    def geef_stemparameters(self) -> dict[str,dict]:
+        waarden = standaard_parameters()
+        with self._open_database() as database:
+            regels = database.execute('SELECT profiel, instellingen_json FROM stemprofiel_parameters').fetchall()
+        for profiel, ruwe_json in regels:
+            if profiel in waarden:
+                try:
+                    opgeslagen = json.loads(ruwe_json)
+                    waarden[profiel] = controleer_parameters(profiel, opgeslagen)
+                except (ValueError, TypeError):
+                    # Ongeldige waarden worden nooit aan de audiocallback doorgegeven.
+                    pass
+        return waarden
+
+    def bewaar_stemparameters(self, profiel: str, waarden: dict) -> dict:
+        gecontroleerd = controleer_parameters(profiel, waarden)
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO stemprofiel_parameters(profiel, instellingen_json)
+                    VALUES (?, ?) ON CONFLICT(profiel) DO UPDATE SET instellingen_json=excluded.instellingen_json''',
+                    (profiel, json.dumps(gecontroleerd, separators=(',', ':'))))
+        return gecontroleerd
+
+    def herstel_stemparameters(self, profiel: str | None = None) -> dict[str,dict]:
+        if profiel is not None and profiel not in standaard_parameters():
+            raise ValueError('STEM-054: dit profiel heeft geen geavanceerde instellingen.')
+        with self._open_database() as database:
+            with database:
+                if profiel is None:
+                    database.execute('DELETE FROM stemprofiel_parameters')
+                else:
+                    database.execute('DELETE FROM stemprofiel_parameters WHERE profiel=?', (profiel,))
+        return self.geef_stemparameters()
+
+    def geef_voorbeeldspreker(self) -> str:
+        with self._open_database() as database:
+            rij = database.execute('SELECT spreker FROM stemvoorbeeld_spreker WHERE sleutel=1').fetchone()
+        return rij[0] if rij else 'bob'
+
+    def bewaar_voorbeeldspreker(self, spreker: str) -> str:
+        if type(spreker) is not str or spreker not in ('bob','elise'):
+            raise ValueError('STEM-055: kies Bob of Elise.')
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO stemvoorbeeld_spreker(sleutel, spreker)
+                    VALUES(1, ?) ON CONFLICT(sleutel) DO UPDATE SET spreker=excluded.spreker''', (spreker,))
+        return spreker
+
+    def bewaar_stemintensiteit(self, profiel: str, intensiteit: int) -> int:
+        profiel = controleer_stemprofiel(profiel)
+        intensiteit = controleer_stemintensiteit(intensiteit)
+        with self._open_database() as database:
+            with database:
+                database.execute('''INSERT INTO stemprofiel_intensiteit (profiel, intensiteit)
+                    VALUES (?, ?) ON CONFLICT(profiel) DO UPDATE SET intensiteit=excluded.intensiteit''',
+                    (profiel, intensiteit))
+        return intensiteit
+
+    def herstel_stemintensiteit(self, profiel: str | None = None) -> dict[str, int]:
+        '''Herstel één profiel, of expliciet alle profielen bij None.'''
+        if profiel is not None:
+            controleer_stemprofiel(profiel)
+        with self._open_database() as database:
+            with database:
+                if profiel is None:
+                    database.execute('DELETE FROM stemprofiel_intensiteit')
+                else:
+                    database.execute('DELETE FROM stemprofiel_intensiteit WHERE profiel = ?', (profiel,))
+        return self.geef_stemintensiteiten()
 
     def geef_alle_favorietplekken(self) -> list[str | None]:
         """Geef exact 15 posities terug, ook wanneer de bibliotheek nog leeg is."""

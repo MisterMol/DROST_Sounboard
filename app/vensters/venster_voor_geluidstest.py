@@ -53,7 +53,7 @@ class VensterVoorWavGeluidstest:
         ).pack(fill="x")
         tkinterbibliotheek.Label(
             inhoud,
-            text="Tijdelijk testvenster. Je Razer-microfoon blijft uit deze test.",
+            text="Tijdelijk testvenster. De gewone microfoon wordt niet gebruikt.",
             anchor="w",
         ).pack(fill="x", pady=(4, 12))
         tkinterbibliotheek.Label(

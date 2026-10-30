@@ -58,6 +58,8 @@ class VoorbereidGeluidsfragment:
     fragment_begint_bij_seconden: float = 0.0
     bronduur_in_seconden: float | None = None
     fragment_ingekort: bool = False
+    normalisatiestand: str = 'uit'
+    normalisatiefactor: float = 1.0
 
     @property
     def duur_in_seconden(self) -> float:
