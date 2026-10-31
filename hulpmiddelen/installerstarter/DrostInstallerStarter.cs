@@ -313,15 +313,21 @@ internal sealed class Installer : Form {
                     Meld("DrostSoundboard en de startergeluiden zijn klaar. " + melding, 100);
                     hint.Text = "Installatie geslaagd. Je vindt de geluiden in de Bibliotheek.\nKlik op 'DrostSoundboard openen' om de app te gebruiken.";
                 } catch (Exception fout) {
+                    bool zipBeschikbaar = File.Exists(packPad ?? "");
                     Meld("DrostSoundboard is geïnstalleerd. Geluiden nog niet toegevoegd.", 0);
-                    hint.Text = "De app werkt. Voeg het soundpack eventueel zelf toe via Bibliotheek.\n" +
-                                "Selecteer het ZIP-bestand in Downloads, kies Alle nieuwe en klik Importeren.";
-                    MessageBox.Show(this, "DrostSoundboard is klaar, maar de startergeluiden zijn nog niet toegevoegd.\n\n" +
-                        fout.Message + "\n\nHandmatig toevoegen:\n" +
-                        "1. Open DrostSoundboard en ga naar Bibliotheek.\n" +
-                        "2. Kies Audiopack importeren en selecteer het ZIP-bestand in Downloads.\n" +
-                        "3. Kies Alle nieuwe en klik Geselecteerde geluiden importeren.\n" +
-                        "Het ZIP-bestand hoef je niet uit te pakken.",
+                    hint.Text = zipBeschikbaar
+                        ? "De app werkt. Het ZIP-bestand staat in Downloads.\n" +
+                          "Ga naar Bibliotheek > Audiopack importeren om het zelf toe te voegen."
+                        : "De app werkt. Het geluidenpakket is nog niet gedownload.\n" +
+                          "Je kunt het later via de officiële GitHub Releases ophalen.";
+                    string ophalen = zipBeschikbaar ? "" :
+                        "1. Download DrostSoundboard_startersoundpack.zip via " +
+                        "https://github.com/MisterMol/DROST_Sounboard/releases\n";
+                    MessageBox.Show(this, "DrostSoundboard is geïnstalleerd, maar de startergeluiden zijn nog niet toegevoegd.\n\n" +
+                        fout.Message + "\n\nHandmatig toevoegen:\n" + ophalen +
+                        "2. Open DrostSoundboard en ga naar Bibliotheek > Audiopack importeren.\n" +
+                        "3. Selecteer het ZIP-bestand in Downloads, kies Alle nieuwe en klik " +
+                        "Geselecteerde geluiden importeren.\nDe ZIP hoef je niet uit te pakken.",
                         "Soundpack nog niet toegevoegd", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             } else {
