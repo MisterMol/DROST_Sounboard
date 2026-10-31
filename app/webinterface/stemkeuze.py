@@ -48,7 +48,10 @@ class StemKeuzeBediening:
         from app.audio.stemvervorming import controleer_kiesbaar_stemprofiel
         if not isinstance(keuze,str): raise ValueError('Kies een beschikbaar stemprofiel.')
         natuurlijk=keuze in OP_ID
-        if natuurlijk:controleer_variant(keuze)
+        if natuurlijk:
+            controleer_variant(keuze)
+            if not self.natuurlijke_stem.status().get('beschikbaar'):
+                raise ValueError('AI-stemmen zijn niet beschikbaar in de compacte versie.')
         else:controleer_kiesbaar_stemprofiel(keuze)
         with self._bescherm_toestand:
             self._controleer_stemkeuze_actie()
