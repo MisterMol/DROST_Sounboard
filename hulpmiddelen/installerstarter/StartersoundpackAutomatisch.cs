@@ -121,7 +121,8 @@ internal static class StartersoundpackAutomatisch {
                                              Action<string, int> toon) {
         if (!File.Exists(zip))
             throw new FileNotFoundException("Het startersoundpack ontbreekt.", zip);
-        if (string.IsNullOrEmpty(releaseTag) || !releaseTag.StartsWith("v6.1.0-", StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(releaseTag) ||
+            !Regex.IsMatch(releaseTag, @"\Av\d+\.\d+\.\d+(?:-(?:beta|rc)\.\d+(?:\.\d+)?)?\z"))
             throw new InvalidDataException("Onbekende versie voor automatische import.");
         string adres = await WachtOpJuisteApp(http, releaseTag.Substring(1), toon);
         // Het schrijftoken staat alleen in de lokale HTML. Geen appgegevens of token naar GitHub.
@@ -134,7 +135,8 @@ internal static class StartersoundpackAutomatisch {
         var progress = new Progress<int>(percentage => {
             if (percentage != vorige) {
                 vorige = percentage;
-                toon("Startersoundpack toevoegen: " + percentage + "% verstuurd", percentage);
+                if (percentage == 100) toon("Geluiden importeren en controleren...", -1);
+                else toon("Startersoundpack toevoegen: " + percentage + "% verstuurd", percentage);
             }
         });
         using (var body = new AudiopackMetVoortgang(zip, progress))
@@ -144,7 +146,7 @@ internal static class StartersoundpackAutomatisch {
             request.Content = body;
             // Na 100% upload begint de Python-server ZIP-validatie en import.
             // Deze status is bewust onbepaald: geen nepvoortgang melden.
-            toon("Geluiden importeren. Bestaande geluiden blijven behouden...", -1);
+            toon("Startersoundpack naar DrostSoundboard versturen...", 0);
             using (var antwoord = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead)) {
                 string tekst = await antwoord.Content.ReadAsStringAsync();
                 if (!antwoord.IsSuccessStatusCode)
