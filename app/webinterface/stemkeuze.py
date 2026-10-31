@@ -33,9 +33,15 @@ class StemKeuzeBediening:
             self.mixer.stel_stemprofiel_in('normaal')
             self.stemvoorbeeld.stel_stemprofiel_in('normaal')
             if vervang_keuze:
-                self._stemkeuze_migratiemelding = (
-                    'Je eerder gekozen leeftijdseffect is verwijderd. Normale effecten zijn nu '
-                    'geselecteerd. De aan/uitstand is behouden.')
+                if ai_stemmen_ingeschakeld():
+                    self._stemkeuze_migratiemelding = (
+                        'Je eerder gekozen leeftijdseffect is verwijderd. Nova is nu '
+                        'geselecteerd. De aan/uitstand is behouden.')
+                else:
+                    self._stemkeuze_migratiemelding = (
+                        'Je eerder gekozen leeftijdseffect is verwijderd. '
+                        'De AI-stemmen zijn niet inbegrepen; Normaal is geselecteerd. '
+                        'Zet een gewoon effect aan als je stemvervorming wilt gebruiken.')
 
     def _controleer_stemkeuze_actie(self):
         if self._wordt_afgesloten: raise ValueError('De app wordt afgesloten.')
