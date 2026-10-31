@@ -2073,6 +2073,7 @@ async function vernieuwStatus() {
       : "Verbinding wordt afgesloten.";
     if (status.toestand === "fout") extra = `Audiofout: ${status.fout || "Zie software.jsonl"}`;
     element("extra-status").textContent = extra;
+    toonAutomatischMicrofoonformaat(status);
     if (status.laatste_afspeelfout && status.laatste_afspeelfout !== toestand.laatsteAudiofout) {
       toestand.laatsteAudiofout = status.laatste_afspeelfout;
       toonMelding(`Afspeelfout: ${status.laatste_afspeelfout}`, true);
@@ -2088,6 +2089,38 @@ async function vernieuwStatus() {
     }
     element("extra-status").textContent = leesbareBrowsermelding(fout.message);
   } finally { toestand.bezetteStatusaanvraag = false; }
+}
+
+function toonAutomatischMicrofoonformaat(status) {
+  const paneel = element("audioformaat-melding");
+  if (!paneel) return;
+  const verbonden = status.toestand === "verbonden";
+  const aangepast = verbonden && status.automatisch_audioformaat === true;
+  const fout = status.toestand === "fout" && status.microfoon_formaat_fout === true;
+  paneel.hidden = !aangepast && !fout;
+  if (paneel.hidden) return;
+  paneel.dataset.fout = String(fout);
+  const kHz = (hz) => `${(Number(hz) / 1000).toLocaleString("nl-NL", { maximumFractionDigits: 2 })} kHz`;
+  const invoer = Number(status.microfoon_samplefrequentie);
+  const uitvoer = Number(status.uitvoer_samplefrequentie) || 48000;
+  element("audioformaat-titel").textContent = fout
+    ? "Microfoonformaat niet ondersteund" : "Microfoonformaat automatisch aangepast";
+  element("audioformaat-uitleg").textContent = fout
+    ? "DrostSoundboard kon deze microfoon niet openen. Controleer in Windows: Geluid, Meer geluidsinstellingen, Opnemen, Eigenschappen, Geavanceerd. Kies een beschikbaar opnameformaat of een andere microfooningang."
+    : (invoer === uitvoer
+        ? `DrostSoundboard gebruikt aparte audioverbindingen op ${kHz(invoer)} omdat de gecombineerde verbinding niet werkte. De opnamekwaliteit blijft afhankelijk van de headset.`
+        : `De microfoon gebruikt ${kHz(invoer)}. DrostSoundboard zet de stem automatisch om naar ${kHz(uitvoer)} voor de virtuele microfoon. De opnamekwaliteit blijft afhankelijk van de headset.`);
+  const extra = element("audioformaat-formaten");
+  const geschikt = Array.isArray(status.microfoon_formaten_geschikt)
+    ? status.microfoon_formaten_geschikt.filter(x => Number.isInteger(x) && x >= 8000 && x <= 192000)
+    : [];
+  const standaard = Number(status.standaard_microfoonfrequentie);
+  extra.hidden = !fout && !geschikt.length;
+  extra.textContent = fout
+    ? (standaard >= 8000 && standaard <= 192000
+        ? `Door Windows gemeld standaardformaat: ${kHz(standaard)}. Dat is geen garantie dat de driver het accepteert.`
+        : "Niet elk opnameformaat wordt door elke Bluetooth- of USB-driver ondersteund.")
+    : (geschikt.length ? `Door de driver geaccepteerd: ${geschikt.map(kHz).join(", ")}.` : "");
 }
 
 async function importeerGekozenBestanden(bestanden) {

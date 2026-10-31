@@ -1553,3 +1553,11 @@ body[data-kaarthoeken="strak"] .dashboard-indeling-instellingen {border-radius:7
 @media(min-width:931px){
   html[data-dashboardindeling="bibliotheek"] #dashboard .zijbalk {height:885px;min-height:0;}
 }
+
+/* Een rustige, blijvende formaatmelding. Geen pop-up die audio of scrollen onderbreekt. */
+.audioformaat-melding { margin-top:12px; padding:12px 14px; border:1px solid var(--rand); background:var(--paneel-hoog); border-radius:12px; color:var(--gedempt); font-size:12px; line-height:1.5; }
+.audioformaat-melding strong { display:block; color:var(--accent); margin-bottom:4px; }
+.audioformaat-melding p { margin:3px 0 0; overflow-wrap:anywhere; }
+.audioformaat-melding[data-fout="true"] { border-color:#a46961; background:#302022; }
+.audioformaat-melding[data-fout="true"] strong { color:#ffd0c9; }
+.audioformaat-melding[hidden] { display:none !important; }

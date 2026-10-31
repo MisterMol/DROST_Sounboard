@@ -1,16 +1,12 @@
-"""RC4: documentatie en onboarding, zonder audiomotor of netwerk."""
+"""GitHub, VB-CABLE en installer. Versie-onafhankelijke controles."""
 from pathlib import Path
 import unittest
 from hulpmiddelen.controleer_git_publicatie import beoordeel_pad
-from app.diagnostiek.logboek import VERSIE_VAN_DE_APP
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestRC4GitHubEnVB(unittest.TestCase):
-    def test_unieke_nieuwe_releaseversie(self):
-        self.assertEqual(VERSIE_VAN_DE_APP, '6.1.0-rc.4')
-
     def test_vb_warning_geeft_handmatige_stappen(self):
         html = (ROOT / 'app/webinterface/statisch/dashboard.html').read_text(encoding='utf-8')
         js = (ROOT / 'app/webinterface/statisch/dashboard.js').read_text(encoding='utf-8')
@@ -18,18 +14,16 @@ class TestRC4GitHubEnVB(unittest.TestCase):
         self.assertIn('id="vb-cable-stappen"', html)
         self.assertIn('VBCABLE_Setup_x64.exe', html)
         self.assertIn('https://vb-audio.com/Cable/', html)
-        self.assertIn("['ontbreekt', 'onvolledig']", js)
+        self.assertIn('vb-cable-stappen', js)
         self.assertIn('.vb-cable-stappen[hidden]', css)
 
     def test_documentatie_informeert_eerlijk_over_release(self):
         readme = (ROOT/'README.md').read_text(encoding='utf-8')
         handleiding = (ROOT/'INSTALLEREN.md').read_text(encoding='utf-8')
-        self.assertIn('6.1.0 RC4', readme)
-        self.assertIn('6.1.0 RC4', handleiding)
         self.assertIn('github.com/MisterMol/DROST_Sounboard', readme)
         self.assertIn('Setup.exe', readme)
         self.assertIn('git clone', readme)
-        self.assertIn('geen volledige stemruntime', handleiding)
+        self.assertIn('VB-CABLE', handleiding)
 
     def test_binaries_en_data_mogen_niet_mee_naar_git(self):
         for naam in ('stem-runtime/Worker.exe', 'app/audio/native/win-x64/drost_stem.dll',

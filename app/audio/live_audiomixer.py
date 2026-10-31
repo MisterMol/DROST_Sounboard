@@ -3,7 +3,8 @@
 Deze module kent geen venster, bestandskiezer of Discord-instellingen. Dat is
 bewust: later kan het HTML-dashboard dezelfde audiomotor aansturen.
 
-We gebruiken voorlopig één WASAPI-duplexstream op 48 kHz. De werkdraad
+We gebruiken bij voorkeur één WASAPI-duplexstream op 48 kHz. Bij een
+niet passend microfoonformaat valt de app terug op gescheiden streams. De werkdraad
 initialiseert expliciet Windows COM voordat PortAudio wordt aangeroepen.
 Bij een specifieke tijdelijke WDM-KS-startfout kan de stream gecontroleerd
 worden vrijgegeven en opnieuw gestart; alle fouten blijven volledig gelogd.
@@ -23,6 +24,9 @@ from uuid import uuid4
 import numpy as np
 
 from app.audio.apparatenbeheer import GevondenAudioapparaat
+from app.audio.automatische_microfoonformaten import (
+    KANDIDAAT_FREQUENTIES, maak_streamadapter, zoek_microfoonformaat,
+)
 from app.audio.automatisch_audioherstel import (
     MAXIMALE_STARTPOGINGEN,
     open_en_start_de_audiostream_met_herstel,
@@ -92,6 +96,13 @@ class StatusVanDeLiveVerbinding:
     effect_actief: bool = False
     effect_rms_voor: float = 0.0
     effect_rms_na: float = 0.0
+    microfoon_samplefrequentie: int | None = None
+    uitvoer_samplefrequentie: int = SAMPLEFREQUENTIE_VAN_DE_UITVOER
+    aangepast_microfoonformaat: bool = False
+    microfoon_formaten_geprobeerd: tuple[int, ...] = ()
+    microfoon_formaten_geschikt: tuple[int, ...] = ()
+    standaard_microfoonfrequentie: int | None = None
+    microfoon_formaat_fout: bool = False
 
 
 @dataclass(frozen=True)
@@ -246,6 +257,11 @@ class LiveAudiomixer:
         self._recente_kabelmetingen = GeschiedenisVanAudioniveaus()
         self._huidige_startpoging = 0
         self._com_stand = "niet_gecontroleerd"
+        self._microfoon_samplefrequentie: int | None = None
+        self._aangepast_microfoonformaat = False
+        self._microfoon_formaten_geprobeerd: tuple[int, ...] = ()
+        self._microfoon_formaten_geschikt: tuple[int, ...] = ()
+        self._standaard_microfoonfrequentie: int | None = None
         self._stuur_effect_naar_eigen_headset = None
         self._maak_headsetbuffer_leeg = None
         self._stuur_live_mix_naar_headset = None
@@ -388,6 +404,12 @@ class LiveAudiomixer:
                 effect_actief=self._effect_actief and self._toestand == "verbonden",
                 effect_rms_voor=self._effect_rms_voor if self._toestand == "verbonden" else 0.0,
                 effect_rms_na=self._effect_rms_na if self._toestand == "verbonden" else 0.0,
+                microfoon_samplefrequentie=self._microfoon_samplefrequentie,
+                aangepast_microfoonformaat=self._aangepast_microfoonformaat,
+                microfoon_formaten_geprobeerd=self._microfoon_formaten_geprobeerd,
+                microfoon_formaten_geschikt=self._microfoon_formaten_geschikt,
+                standaard_microfoonfrequentie=self._standaard_microfoonfrequentie,
+                microfoon_formaat_fout=bool(self._laatste_fout and self._laatste_fout.startswith('LIVE-003:')),
             )
 
     def _verander_status(self, nieuwe_toestand: str, foutmelding: str | None = None) -> None:
@@ -432,6 +454,11 @@ class LiveAudiomixer:
             self._recente_kabelmetingen = GeschiedenisVanAudioniveaus()
             self._huidige_startpoging = 0
             self._com_stand = "niet_gecontroleerd"
+            self._microfoon_samplefrequentie = None
+            self._aangepast_microfoonformaat = False
+            self._microfoon_formaten_geprobeerd = ()
+            self._microfoon_formaten_geschikt = ()
+            self._standaard_microfoonfrequentie = None
             self._limiter = PiekLimiter()
             self._limiter_vorige_stand = self._limiter_ingeschakeld
             self._limiter_reductie_db = 0.0
@@ -964,9 +991,47 @@ class LiveAudiomixer:
         wat_was_bezig = "audio-instellingen controleren"
         verbinding_heeft_echt_gewerkt = False
         try:
-            gekozen_aantal_invoerkanalen = kies_het_juiste_aantal_microfoonkanalen(
-                self.audiobibliotheek, microfoon
-            )
+            # Bestaande snelle duplexroute blijft exact gelijk voor werkende
+            # apparaten. Pas wanneer 48 kHz wordt geweigerd zoeken we naar
+            # daadwerkelijk door PortAudio geaccepteerde alternatieven.
+            gescheiden_formaat = None
+            try:
+                gekozen_aantal_invoerkanalen = kies_het_juiste_aantal_microfoonkanalen(
+                    self.audiobibliotheek, microfoon
+                )
+                self._microfoon_samplefrequentie = SAMPLEFREQUENTIE_VAN_DE_UITVOER
+                self._microfoon_formaten_geschikt = (SAMPLEFREQUENTIE_VAN_DE_UITVOER,)
+                self._microfoon_formaten_geprobeerd = (SAMPLEFREQUENTIE_VAN_DE_UITVOER,)
+            except LiveVerbindingFout as fout_48khz:
+                if not str(fout_48khz).startswith('LIVE-003:'):
+                    raise
+                gescheiden_formaat = zoek_microfoonformaat(
+                    self.audiobibliotheek, microfoon.huidig_apparaatnummer,
+                    microfoon.aantal_invoerkanalen,
+                )
+                if gescheiden_formaat is None:
+                    # Het door de driver gemelde standaardformaat is géén
+                    # bewijs van daadwerkelijke ondersteuning.
+                    self._microfoon_formaten_geprobeerd = KANDIDAAT_FREQUENTIES
+                    try:
+                        standaard = self.audiobibliotheek.query_devices(
+                            microfoon.huidig_apparaatnummer)['default_samplerate']
+                        self._standaard_microfoonfrequentie = int(float(standaard))
+                    except (AttributeError, KeyError, ValueError, TypeError, OverflowError):
+                        pass
+                    raise LiveVerbindingFout(
+                        'LIVE-003: deze microfoon accepteert geen van de geteste '                        'opnameformaten. Controleer de microfoon in Windows '                        'Geluid > Meer geluidsinstellingen > Opnemen > Eigenschappen '                        '> Geavanceerd, of kies een andere microfooningang.'
+                    ) from fout_48khz
+                gekozen_aantal_invoerkanalen = gescheiden_formaat.aantal_kanalen
+                self._microfoon_samplefrequentie = gescheiden_formaat.samplefrequentie
+                self._standaard_microfoonfrequentie = gescheiden_formaat.standaard_samplefrequentie
+                self._microfoon_formaten_geprobeerd = gescheiden_formaat.geteste_samplefrequenties
+                self._microfoon_formaten_geschikt = gescheiden_formaat.ondersteunde_samplefrequenties
+                self._aangepast_microfoonformaat = (
+                    gescheiden_formaat.samplefrequentie != SAMPLEFREQUENTIE_VAN_DE_UITVOER
+                )
+                if not self._aangepast_microfoonformaat:
+                    gescheiden_formaat = None
             self.audiobibliotheek.check_output_settings(
                 device=kabel.huidig_apparaatnummer,
                 channels=2, dtype="float32", samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER,
@@ -983,14 +1048,56 @@ class LiveAudiomixer:
                 "latency": "high",
                 "callback": self.verwerk_een_blok_live_audio,
             }
-            audiostroom, aantal_startpogingen = open_en_start_de_audiostream_met_herstel(
-                audiobibliotheek=self.audiobibliotheek,
-                instellingen_van_stream=instellingen_van_stream,
-                stoppen_gevraagd=self._stop_de_verbinding,
-                softwarelogboek=self.softwarelogboek,
-                auditlogboek=self.auditlogboek,
-                zet_huidige_poging=self._zet_huidige_startpoging,
-            )
+            werkelijke_bibliotheek = (maak_streamadapter(self.audiobibliotheek, gescheiden_formaat)
+                                      if gescheiden_formaat is not None else self.audiobibliotheek)
+            try:
+                audiostroom, aantal_startpogingen = open_en_start_de_audiostream_met_herstel(
+                    audiobibliotheek=werkelijke_bibliotheek,
+                    instellingen_van_stream=instellingen_van_stream,
+                    stoppen_gevraagd=self._stop_de_verbinding,
+                    softwarelogboek=self.softwarelogboek,
+                    auditlogboek=self.auditlogboek,
+                    zet_huidige_poging=self._zet_huidige_startpoging,
+                )
+            except Exception as fout_bij_duplex:
+                # Sommige WASAPI-drivers accepteren 48 kHz in de voorafgaande
+                # controle, maar weigeren pas de gecombineerde input/output-
+                # stream. Probeer dan alsnog twee onafhankelijke streams.
+                # Alleen de fout over samplefrequentie activeert dit herstel.
+                rate_fout = str(fout_bij_duplex).casefold()
+                ongeldige_frequentie = ('invalid sample rate' in rate_fout or
+                                        'paerrorcode -9997' in rate_fout)
+                if not ongeldige_frequentie:
+                    raise
+                if gescheiden_formaat is not None:
+                    raise LiveVerbindingFout(
+                        'LIVE-003: Windows accepteerde het opnameformaat bij de controle, '
+                        'maar de headset weigerde de echte audiostream. Controleer '
+                        'in Windows het opnameformaat en probeer een andere microfooningang.'
+                    ) from fout_bij_duplex
+                gescheiden_formaat = zoek_microfoonformaat(
+                    self.audiobibliotheek, microfoon.huidig_apparaatnummer,
+                    microfoon.aantal_invoerkanalen,
+                )
+                if gescheiden_formaat is None:
+                    raise LiveVerbindingFout(
+                        'LIVE-003: ook na het automatisch onderzoeken van andere '
+                        'opnameformaten kon deze microfoon niet worden geopend. '
+                        'Controleer het opnameformaat in de Windows-geluidsinstellingen.'
+                    ) from fout_bij_duplex
+                self._microfoon_samplefrequentie = gescheiden_formaat.samplefrequentie
+                self._standaard_microfoonfrequentie = gescheiden_formaat.standaard_samplefrequentie
+                self._microfoon_formaten_geprobeerd = gescheiden_formaat.geteste_samplefrequenties
+                self._microfoon_formaten_geschikt = gescheiden_formaat.ondersteunde_samplefrequenties
+                self._aangepast_microfoonformaat = True
+                audiostroom, aantal_startpogingen = open_en_start_de_audiostream_met_herstel(
+                    audiobibliotheek=maak_streamadapter(self.audiobibliotheek, gescheiden_formaat),
+                    instellingen_van_stream=instellingen_van_stream,
+                    stoppen_gevraagd=self._stop_de_verbinding,
+                    softwarelogboek=self.softwarelogboek,
+                    auditlogboek=self.auditlogboek,
+                    zet_huidige_poging=self._zet_huidige_startpoging,
+                )
             if audiostroom is None:
                 # Verbreken tijdens een herstelpauze is een normale actie.
                 # We mogen dat niet als een werkende audioverbinding melden.
@@ -1033,6 +1140,8 @@ class LiveAudiomixer:
                     "uitvoer": kabel.naam,
                     "uitvoer_nummer_op_dit_moment": kabel.huidig_apparaatnummer,
                     "samplefrequentie": SAMPLEFREQUENTIE_VAN_DE_UITVOER,
+                    "microfoon_samplefrequentie": self._microfoon_samplefrequentie,
+                    "automatische_sampleomzetting": self._aangepast_microfoonformaat,
                     "aantal_startpogingen": aantal_startpogingen,
                     "com_stand": self._com_stand,
                     "stand_bij_opstart": "geluidseffecten_uit, microfoon_doorgeven",

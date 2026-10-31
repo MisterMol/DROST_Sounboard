@@ -50,6 +50,7 @@ MELDINGEN = {
     'NORM-005': 'Een andere preview wordt nog voorbereid. Probeer het zo opnieuw.',
     'LIVE-001': 'Kies een microfoon uit de lijst.',
     'LIVE-002': 'Kies je echte microfoon, niet CABLE Output.',
+    'LIVE-003': 'De microfoon accepteert de geteste audioformaten niet. Controleer het opnameformaat in Windows of kies een andere microfoon.',
     'LIVE-010': 'Klik eerst op Verbinden.',
     'LIVE-012': 'Klik eerst op Verbinden.',
     'LIVE-013': 'Zet Soundboard aan om een geluid uit te zenden.',

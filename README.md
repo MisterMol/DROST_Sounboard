@@ -2,7 +2,7 @@
 
 Een soundboard voor Windows, gemaakt als hobbyproject. Speel geluiden af, gebruik 15 favorieten, zoek in je bibliotheek en verzend geluiden via een virtuele microfoon.
 
-**Versie 6.1.0 RC4 (testversie)**
+**Versie 6.1.0 RC5 (testversie)**
 
 ## Installeren
 
