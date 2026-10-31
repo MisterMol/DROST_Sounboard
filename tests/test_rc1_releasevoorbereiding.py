@@ -141,7 +141,8 @@ class TestReleaseUitvoer(unittest.TestCase):
             with self.assertRaises(ValueError):self.klaar()
     def test_releasepad_link_geweigerd(self):
         p=self.root/'ander'; p.mkdir(); target=p/'release-velopack'; target.mkdir()
-        with patch.object(Path, 'is_symlink', lambda path: path == target):
+        # Vergelijk via hetzelfde bestand; Windows CI gebruikt soms 8.3-padnamen.
+        with patch.object(Path, 'is_symlink', lambda path: path.exists() and path.samefile(target)):
             with self.assertRaises(ValueError):maak_bouwplan(p,VERSIE,'d'*32)
 
 
