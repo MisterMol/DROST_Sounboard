@@ -35,8 +35,8 @@ internal sealed class Installer : Form {
         var kop=new Label(){Text="DrostSoundboard installeren",Bounds=new Rectangle(20,15,530,36),
             Font=new Font("Segoe UI",17,FontStyle.Bold),ForeColor=Color.FromArgb(120,214,197)};
         hint.SetBounds(20,60,530,40);
-        hint.Text="Download de Windows Setup met zichtbare voortgang. Je bestaande bibliotheek blijft bewaard.";
-        pack.SetBounds(20,106,530,28); pack.Text="Ook startersoundpack downloaden (ongeveer 310 MiB)";pack.Checked=true;
+        hint.Text="DrostSoundboard wordt voor je geïnstalleerd. Bestaande geluiden en instellingen blijven bewaard.";
+        pack.SetBounds(20,106,530,28); pack.Text="Ook 141 startergeluiden toevoegen (+310 MiB download)";pack.Checked=false;
         pack.ForeColor=Color.FromArgb(241,248,249);pack.BackColor=BackColor;
         status.SetBounds(20,144,530,40);status.Text="Klaar om te beginnen.";
         balk.SetBounds(20,190,530,18);
@@ -135,7 +135,7 @@ internal sealed class Installer : Form {
     }
     async Task Begin(){
         start.Enabled=false;pack.Enabled=false;stop.Enabled=true;map.Enabled=false;packPad=null;
-        hint.Text="De Setup wordt opgehaald. Het optionele soundpack wordt opgeslagen in Downloads.";
+        hint.Text="De app en eventueel het geluidenpakket worden automatisch voorbereid.";
         annulering=new CancellationTokenSource();
         try{
             Meld("GitHub-release controleren...");
@@ -162,9 +162,28 @@ internal sealed class Installer : Form {
                 await Task.Run(()=>p.WaitForExit());
                 if(p.ExitCode!=0)throw new InvalidOperationException("Setup heeft foutcode "+p.ExitCode+" teruggegeven.");
             }
-            setupBezig=false;Meld("Installatie afgerond.",100);
-            hint.Text=packPad==null?"Open DrostSoundboard via het Startmenu.":
-                "Soundpack staat in Downloads. Importeer via Bibliotheek > Audiopack importeren.";
+            if(packPad!=null){
+                // De reeds geïnstalleerde lokale app verzorgt dezelfde veilige import
+                // als het gewone dashboard. Er wordt niets in de SQLite-database gewist.
+                try{
+                    Meld("Startersoundpack automatisch toevoegen...");
+                    string melding=await StartersoundpackAutomatisch.VoegToe(
+                        http,packPad,setup.tag,(tekst,pct)=>Meld(tekst,pct));
+                    Meld("Installatie en geluiden gereed. "+melding,100);
+                    hint.Text="DrostSoundboard is klaar voor gebruik. Je geluiden staan in de bibliotheek.";
+                }catch(Exception fout){
+                    Meld("App geïnstalleerd; het soundpack is nog niet toegevoegd.",0);
+                    hint.Text="Je soundpack staat veilig in Downloads. De app zelf is geïnstalleerd.";
+                    MessageBox.Show(this,"DrostSoundboard is geïnstalleerd. Alleen het automatisch toevoegen "+
+                        "van de geluiden mislukte.\n\n"+fout.Message+
+                        "\n\nJe kunt het bestand nog importeren via Bibliotheek > Audiopack importeren.",
+                        "Geluiden nog niet toegevoegd",MessageBoxButtons.OK,MessageBoxIcon.Information);
+                }
+            }else{
+                Meld("Installatie afgerond.",100);
+                hint.Text="DrostSoundboard is klaar. Open het via het Startmenu.";
+            }
+            setupBezig=false;
             map.Enabled=packPad!=null&&File.Exists(packPad);
             start.Text="Opnieuw installeren";
         }catch(OperationCanceledException){Meld("Download geannuleerd.",0);}
