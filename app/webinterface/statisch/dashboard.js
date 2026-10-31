@@ -3927,7 +3927,7 @@ function gekozenStemId() {
 const VERVALLEN_STEMPROFIELEN = new Set(['jongen', 'meisje', 'oudeman', 'oudevrouw']);
 
 function alleStemkeuzes() {
-  return [...toestand.stemprofielen, ...(toestand.natuurlijkeStem?.varianten || [])]
+  return [...toestand.stemprofielen, ...(toestand.natuurlijkeStem?.beschikbaar ? (toestand.natuurlijkeStem?.varianten || []) : [])]
     .filter(profiel => !VERVALLEN_STEMPROFIELEN.has(profiel.id));
 }
 function stemkeuzeActief() {
