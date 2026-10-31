@@ -15,5 +15,14 @@ jobs:
           python-version: '3.13'
       - name: Installeer afhankelijkheden
         run: python -m pip install -r requirements.txt
+      - name: Herstel ontbrekende Windows-branding vanuit het bestaande logo
+        run: python -m hulpmiddelen.bereid_releaseassets_voor
+      - name: Meld dat native tests een echte DLL vereisen
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'app/audio/native/win-x64/drost_stem.dll')) {
+            Write-Warning 'Native audiotests worden expliciet overgeslagen: drost_stem.dll is niet meegeleverd in Git. De Windows-releasebouw vereist deze DLL en controleert de hash.'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value 'Native audiotests zijn overgeslagen omdat de niet-geversioneerde `drost_stem.dll` ontbreekt. Een groen testresultaat is geen Windows-releasegoedkeuring.'
+          }
       - name: Draai automatische tests
         run: python -m unittest discover -s tests -q
