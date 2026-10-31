@@ -21,6 +21,7 @@ from .varianten import Klankbewerking, catalogus, controleer_variant
 from .proces import EigenProcesgroep, start_eigen_worker
 from .prestatie import BUFFERPROFIELEN, Meetvenster, beoordeel, controleer_profiel
 from .runtimecontrole import valideer_runtime, file_sha
+from app.desktop.bouwprofiel import ai_stemmen_ingeschakeld
 
 FRAMES=2496
 HEADER=struct.Struct('<4sIII')
@@ -89,7 +90,7 @@ class NatuurlijkeStemDienst:
                 if type(self.gekozen) is not bool:raise ValueError('Ongeldige stemkeuze.')
                 if keuze.get('aan') and not self.gekozen:raise ValueError('Actieve modelstem is niet geselecteerd.')
                 if keuze.get('aan') is True:
-                    if (self.root / 'runtime.json').is_file():
+                    if ai_stemmen_ingeschakeld():
                         self.stel_in(True,bewaren=False)
                     else:
                         # Een oude AI-keuze mag een schone basisinstallatie niet blokkeren.
@@ -459,7 +460,7 @@ class NatuurlijkeStemDienst:
 
     def status(self):
         return dict(aan=self.aan,toestand=self._state,melding=self._message,
-                    beschikbaar=(self.root/'runtime.json').is_file(),
+                    beschikbaar=ai_stemmen_ingeschakeld() and (self.root/'runtime.json').is_file(),
                     model='LLVC-proefmodel',processor=True,
                     variant=self.variant, stemnaam=controleer_variant(self.variant).naam,
                     gekozen=self.gekozen, varianten=catalogus(),
