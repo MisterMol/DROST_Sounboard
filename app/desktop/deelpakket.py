@@ -36,9 +36,10 @@ def maak_deelmap(installer, uitvoer, versie, exerapport, stemrapport):
     stemstatus=json.loads(Path(stemrapport).read_text(encoding='utf-8'))
     if exestatus.get('geslaagd') is not True or exestatus.get('versie')!=versie:
         raise ValueError('De controle van de nieuwe hoofdapp is niet geslaagd of hoort bij een andere versie.')
-    if (stemstatus.get('passed') is not True or stemstatus.get('finite') is not True
+    compact = stemstatus.get('optioneel_niet_meegeleverd') is True
+    if (not compact and (stemstatus.get('passed') is not True or stemstatus.get('finite') is not True
             or stemstatus.get('reset_ok') is not True
-            or stemstatus.get('model_sha256')!='cceb7ab9621f84d62d283725ae3281cacb04f762d6a088fe3e97c1a29d4b8c0e'):
+            or stemstatus.get('model_sha256')!='cceb7ab9621f84d62d283725ae3281cacb04f762d6a088fe3e97c1a29d4b8c0e')):
         raise ValueError('De controle van de meegeleverde stemmotor is niet geslaagd.')
     uitvoer.mkdir(parents=True,exist_ok=True)
     suffix=datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6]
@@ -56,7 +57,7 @@ def maak_deelmap(installer, uitvoer, versie, exerapport, stemrapport):
               'exe_controle_geslaagd':True,'stem_controle_geslaagd':True,
               'schone_windowsinstallatie_getest':False,'echte_audio_getest':False,
               'luisterkwaliteit_getest':False,'code_signing':'niet_door_deze_patch_toegevoegd',
-              'stemuitvoering':'processor','stemmodel':'Nova, Ruben, Linde en Omroeper; één model met vier klankvarianten',
+              'stemuitvoering':'niet inbegrepen' if compact else 'processor','stemmodel':'geen AI-stemmodel' if compact else 'LLVC-proefmodel',
               'let_op':'Geslaagde bouwcontroles zijn geen praktijkgoedkeuring. Test op een tweede Windows-pc.'}
         (tijdelijk/'BOUWCONTROLE.json').write_text(json.dumps(info,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
         aanduiding = 'releasekandidaat' if release.soort == 'rc' else 'bètaversie' if release.soort == 'beta' else 'release'
@@ -75,7 +76,7 @@ Eerste gebruik
    administrator en herstart Windows. De app controleert dit bij de start.
    Zonder VB-CABLE werken Preview en bibliotheekbeheer nog wel.
 4. Kies een stem in Instellingen en beluister Bob of Elise als lokaal voorbeeld.
-   Nova, Ruben, Linde en Omroeper gebruiken hetzelfde model met andere klankinstellingen.
+   De compacte installatie bevat geen AI-stemmodel. De gewone stemeffecten werken wel.
    Bij inschakelen controleert de app zelf de verwerking. Er is geen verplichte GPU.
 5. Selecteer CABLE Output als microfoon in de toepassing waarin je wilt spreken.
 6. Sluit af met App afsluiten of Afsluiten in het systeemvak. Alleen de
