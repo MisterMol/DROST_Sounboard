@@ -6,6 +6,8 @@ on:
       - '.github/workflows/rc6-windows-setup.yml'
       - 'hulpmiddelen/rc6_automatische_bouw/**'
       - 'Bouw_Windows_Release.ps1'
+      - 'Bouw_Installerstarter.ps1'
+      - 'hulpmiddelen/installerstarter/**'
       - 'app/desktop/**'
       - 'app/audio/**'
       - 'app/webinterface/**'
@@ -56,5 +58,26 @@ jobs:
         with:
           name: DrostSoundboard-RC6-Compact-Setup
           path: release-velopack/Bouw-6.1.0-rc.6-*/DrostSoundboard.Desktop-beta-Setup.exe
+          compression-level: 0
+          if-no-files-found: error
+      - name: Bouw zichtbaar RC6 installatievenster met soundpackkeuze
+        shell: powershell
+        run: .\Bouw_Installerstarter.ps1 -RC6Bundel
+      - name: Verpak gecontroleerde compacte RC6 Setup in één EXE
+        shell: powershell
+        run: .\hulpmiddelen\installerstarter\Maak_RC6_Bundel.ps1
+      - name: Controleer het complete zelfvoorzienende installatiebestand
+        shell: powershell
+        run: |
+          $mappen=@(Get-ChildItem 'release-velopack' -Directory -Filter 'Bouw-6.1.0-rc.6-*')
+          if ($mappen.Count -ne 1) { throw 'Onverwacht aantal RC6 bouwmappen.' }
+          $setup=Join-Path $mappen[0].FullName 'DrostSoundboard.Desktop-beta-Setup.exe'
+          python .\hulpmiddelen\installerstarter\Controleer_RC6_Bundel.py 'dist-installerstarter/DrostSoundboard-Installeren-RC6-Test.exe' "$setup"
+          if ($LASTEXITCODE -ne 0) { throw 'Installatiebestand is beschadigd.' }
+      - name: Testinstaller als één Windows-EXE aanbieden
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze
+          path: dist-installerstarter/DrostSoundboard-Installeren-RC6-Test.exe
           compression-level: 0
           if-no-files-found: error
