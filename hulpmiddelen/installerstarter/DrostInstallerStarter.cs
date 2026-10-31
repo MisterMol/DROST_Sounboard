@@ -31,18 +31,28 @@ internal sealed class Installer : Form {
     public Installer(){
         Text="DrostSoundboard installeren"; ClientSize=new Size(570,290);
         StartPosition=FormStartPosition.CenterScreen; MaximizeBox=false; FormBorderStyle=FormBorderStyle.FixedDialog;
-        BackColor=Color.FromArgb(18,24,32); ForeColor=Color.White; Font=new Font("Segoe UI",10);
+        BackColor=Color.FromArgb(30,40,49); ForeColor=Color.FromArgb(241,248,249); Font=new Font("Segoe UI",10);
         var kop=new Label(){Text="DrostSoundboard installeren",Bounds=new Rectangle(20,15,530,36),
             Font=new Font("Segoe UI",17,FontStyle.Bold),ForeColor=Color.FromArgb(120,214,197)};
         hint.SetBounds(20,60,530,40);
         hint.Text="Download de Windows Setup met zichtbare voortgang. Je bestaande bibliotheek blijft bewaard.";
         pack.SetBounds(20,106,530,28); pack.Text="Ook startersoundpack downloaden (ongeveer 310 MiB)";pack.Checked=true;
+        pack.ForeColor=Color.FromArgb(241,248,249);pack.BackColor=BackColor;
         status.SetBounds(20,144,530,40);status.Text="Klaar om te beginnen.";
         balk.SetBounds(20,190,530,18);
         start.SetBounds(20,225,145,34);start.Text="Installeren";
         stop.SetBounds(175,225,115,34);stop.Text="Annuleren";stop.Enabled=false;
         map.SetBounds(300,225,250,34);map.Text="Map met soundpack openen";map.Enabled=false;
         Controls.AddRange(new Control[]{kop,hint,pack,status,balk,start,stop,map});
+        foreach(var knop in new Button[]{start,stop,map}){
+            knop.UseVisualStyleBackColor=false;
+            knop.FlatStyle=FlatStyle.Flat;
+            knop.FlatAppearance.BorderColor=Color.FromArgb(115,170,158);
+            knop.BackColor=Color.FromArgb(44,62,72);
+            knop.ForeColor=Color.FromArgb(245,250,249);
+        }
+        start.BackColor=Color.FromArgb(120,214,197);
+        start.ForeColor=Color.FromArgb(18,39,37);
         start.Click+=async (s,e)=>await Begin();
         stop.Click+=(s,e)=>{if(annulering!=null)annulering.Cancel();};
         map.Click+=(s,e)=>{if(File.Exists(packPad??""))Process.Start("explorer.exe","/select,\""+packPad+"\"");};
@@ -125,6 +135,7 @@ internal sealed class Installer : Form {
     }
     async Task Begin(){
         start.Enabled=false;pack.Enabled=false;stop.Enabled=true;map.Enabled=false;packPad=null;
+        hint.Text="De Setup wordt opgehaald. Het optionele soundpack wordt opgeslagen in Downloads.";
         annulering=new CancellationTokenSource();
         try{
             Meld("GitHub-release controleren...");
@@ -135,11 +146,17 @@ internal sealed class Installer : Form {
             string baseDir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "DrostSoundboard","Installers",setup.tag);
             string exe=await Download(setup,baseDir,annulering.Token);
-            if(pack.Checked)packPad=await Download(sounds,
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"Downloads"),annulering.Token);
+            if(pack.Checked){
+                var downloads=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"Downloads");
+                Meld("Soundpack downloaden naar Downloads...");
+                packPad=await Download(sounds,downloads,annulering.Token);
+                hint.Text="Soundpack opgeslagen in Downloads: "+Path.GetFileName(packPad);
+                map.Enabled=true;
+            }
             annulering.Dispose();annulering=null;stop.Enabled=false;setupBezig=true;
             Meld("Windows Setup wordt gestart. Dit kan even duren...");
-            hint.Text="Wacht tot Windows Setup klaar is. Dit venster blijft open.";
+            hint.Text=packPad==null?"Wacht tot Windows Setup klaar is. Dit venster blijft open.":
+                "Soundpack opgeslagen in Downloads. Wacht tot Windows Setup klaar is.";
             using(var p=Process.Start(new ProcessStartInfo(exe){UseShellExecute=true})){
                 if(p==null)throw new InvalidOperationException("Setup kon niet worden gestart.");
                 await Task.Run(()=>p.WaitForExit());
@@ -147,7 +164,7 @@ internal sealed class Installer : Form {
             }
             setupBezig=false;Meld("Installatie afgerond.",100);
             hint.Text=packPad==null?"Open DrostSoundboard via het Startmenu.":
-                "Open DrostSoundboard en kies Bibliotheek > Audiopack importeren. Selecteer de ZIP in Downloads.";
+                "Soundpack staat in Downloads. Importeer via Bibliotheek > Audiopack importeren.";
             map.Enabled=packPad!=null&&File.Exists(packPad);
             start.Text="Opnieuw installeren";
         }catch(OperationCanceledException){Meld("Download geannuleerd.",0);}
