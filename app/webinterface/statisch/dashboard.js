@@ -3376,18 +3376,70 @@ function maakAudiopackBoom(){
     `${dubbelAantal} bestaande of dubbele bestanden herkend. Nieuwe geluiden staan standaard aangevinkt.`;
   element('audiopack-importeer').disabled=!toestand.audiopackSelectie.size;
 }
+
+/**
+ * Verstuur grote audiopacks met zichtbare voortgang. De balk meet alleen
+ * het verzenden naar de lokale server; daarna gaat het verwerken verder.
+ */
+function verstuurAudiopackMetVoortgang(pad, bestand, voortgang) {
+  return new Promise((voltooid, mislukt) => {
+    const verzoek = new XMLHttpRequest();
+    verzoek.open('POST', pad, true);
+    verzoek.timeout = 15 * 60 * 1000;
+    verzoek.setRequestHeader('Content-Type', 'application/octet-stream');
+    verzoek.setRequestHeader('X-Bestandsnaam', encodeURIComponent(bestand.name));
+    verzoek.setRequestHeader('X-Drost-Token', beveiligingscode);
+    verzoek.upload.onprogress = (gebeurtenis) => {
+      if (!gebeurtenis.lengthComputable || !gebeurtenis.total) {
+        voortgang('Audiopack naar DrostSoundboard verzenden...');
+        return;
+      }
+      const percentage = Math.round(100 * gebeurtenis.loaded / gebeurtenis.total);
+      voortgang('Audiopack verzenden: ' + percentage + '% (' +
+        Math.round(gebeurtenis.loaded / (1024 * 1024)) + ' MiB).');
+    };
+    verzoek.upload.onload = () => voortgang('Audiopack ontvangen. Geluiden verwerken, dit kan even duren...');
+    verzoek.onerror = () => mislukt(new Error(APP_NIET_BEREIKBAAR));
+    verzoek.ontimeout = () => mislukt(new Error(
+      'Audiopack duurde te lang. Controleer eerst de bibliotheek voordat je opnieuw importeert.'));
+    verzoek.onabort = () => mislukt(new Error('Audiopackoverdracht afgebroken.'));
+    verzoek.onload = () => {
+      toonApplicatieverbinding(true);
+      let inhoud;
+      try { inhoud = JSON.parse(verzoek.responseText); }
+      catch { mislukt(maakAntwoordfout({}, verzoek.status || 500)); return; }
+      if (verzoek.status < 200 || verzoek.status >= 300) {
+        mislukt(maakAntwoordfout(inhoud, verzoek.status));
+      } else {
+        voltooid(inhoud);
+      }
+    };
+    verzoek.send(bestand);
+  });
+}
+
 async function bekijkAudiopackVoorImport(bestand){
   if(!bestand)return;
   if(!bestand.name.toLowerCase().endsWith('.zip')||bestand.size>1024*1024*1024+8*1024*1024)
     throw new Error('Kies een audiopack-ZIP met maximaal 1 GiB inhoud.');
-  toonMelding('Audiopack wordt gecontroleerd. De bibliotheek verandert nog niet.');
-  const antwoord=await vraagAanPython('POST','/api/bibliotheek/audiopack-bekijk',undefined,bestand);
-  toestand.audiopackBestand=bestand;
-  toestand.audiopackGeluiden=antwoord.geluiden||[];
-  element('audiopack-ook-dubbelen').checked=false;
-  toestand.audiopackSelectie=new Set(toestand.audiopackGeluiden.filter(g=>!g.al_aanwezig&&!g.dubbel_in_pakket).map(g=>g.index));
-  maakAudiopackBoom();
-  element('dialoog-audiopack').showModal();
+  const dialoog=element('dialoog-audiopack');
+  const status=element('audiopack-status');
+  element('audiopack-boom').replaceChildren();
+  element('audiopack-importeer').disabled=true;
+  status.textContent='Audiopack wordt voorbereid. Je bibliotheek blijft ongewijzigd.';
+  dialoog.showModal();
+  try{
+    const antwoord=await verstuurAudiopackMetVoortgang(
+      '/api/bibliotheek/audiopack-bekijk',bestand,tekst=>{status.textContent=tekst;});
+    toestand.audiopackBestand=bestand;
+    toestand.audiopackGeluiden=antwoord.geluiden||[];
+    element('audiopack-ook-dubbelen').checked=false;
+    toestand.audiopackSelectie=new Set(toestand.audiopackGeluiden.filter(g=>!g.al_aanwezig&&!g.dubbel_in_pakket).map(g=>g.index));
+    maakAudiopackBoom();
+  }catch(fout){
+    dialoog.close();
+    throw fout;
+  }
 }
 async function importeerAudiopackSelectie(){
   const bestand=toestand.audiopackBestand;
@@ -3398,7 +3450,9 @@ async function importeerAudiopackSelectie(){
   try{
     // Dezelfde ZIP gaat opnieuw lokaal naar de server, nu met gevalideerde indexselectie.
     const dubbelOptie=element('audiopack-ook-dubbelen').checked?'toestaan':'overslaan';
-    const antwoord=await vraagAanPython('POST',`/api/bibliotheek/importeer?selectie=${indices.join(',')}&dubbelen=${dubbelOptie}`,undefined,bestand);
+    const antwoord=await verstuurAudiopackMetVoortgang(
+    `/api/bibliotheek/importeer?selectie=${indices.join(',')}&dubbelen=${dubbelOptie}`,bestand,
+    tekst=>{element('audiopack-status').textContent=tekst;});
     element('dialoog-audiopack').close();
     toestand.audiopackBestand=null;toestand.audiopackGeluiden=[];
     toestand.beheerGeselecteerd.clear();
