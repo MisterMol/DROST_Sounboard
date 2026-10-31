@@ -16,12 +16,15 @@ $bronnen = @(
 )
 $assemblies = @('System','System.Core','System.Drawing','System.Windows.Forms','System.Net.Http','System.Web.Extensions')
 if ($RC6Bundel) {
-    $parameters = New-Object System.CodeDom.Compiler.CompilerParameters
-    $parameters.CompilerOptions = '/define:RC6_BUNDEL'
-    Add-Type -Path $bronnen -OutputAssembly $target -OutputType WindowsApplication -ReferencedAssemblies $assemblies -CompilerParameters $parameters
-} else {
-    Add-Type -Path $bronnen -OutputAssembly $target -OutputType WindowsApplication -ReferencedAssemblies $assemblies
+    # PowerShell 5.1 verbiedt -CompilerParameters samen met -ReferencedAssemblies.
+    # Maak daarom een buildlokale C#-bron met de expliciete RC6-definitie.
+    $bundelBron = Join-Path $dir 'GebundeldeSetup_RC6_build.cs'
+    $origineel = [IO.File]::ReadAllText($bronnen[2])
+    [IO.File]::WriteAllText($bundelBron, ("#define RC6_BUNDEL" + [Environment]::NewLine + $origineel),
+        [Text.UTF8Encoding]::new($false))
+    $bronnen[2] = $bundelBron
 }
+Add-Type -Path $bronnen -OutputAssembly $target -OutputType WindowsApplication -ReferencedAssemblies $assemblies
 if (-not (Test-Path $target)) { throw 'Starter kon niet worden gebouwd.' }
 Get-FileHash -Path $target -Algorithm SHA256
 Write-Warning 'De Windows-installer is nog niet digitaal ondertekend. Test eerst op een Windows-pc.'
