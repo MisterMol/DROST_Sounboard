@@ -89,7 +89,13 @@ class NatuurlijkeStemDienst:
                 if type(self.gekozen) is not bool:raise ValueError('Ongeldige stemkeuze.')
                 if keuze.get('aan') and not self.gekozen:raise ValueError('Actieve modelstem is niet geselecteerd.')
                 if keuze.get('aan') is True:
-                    self.stel_in(True,bewaren=False)
+                    if (self.root / 'runtime.json').is_file():
+                        self.stel_in(True,bewaren=False)
+                    else:
+                        # Een oude AI-keuze mag een schone basisinstallatie niet blokkeren.
+                        self.aan = False
+                        self.gekozen = False
+                        self._message = 'AI-stemmen zijn niet meegeleverd. Gewone effecten blijven beschikbaar.'
             except Exception:
                 self.aan=True; self.gekozen=True; self._state='fout'
                 self._message='De proefstem kon niet starten. Je microfoon blijft gedempt. Schakel de proefstem uit om de gewone effecten te gebruiken.'
