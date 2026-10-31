@@ -408,7 +408,7 @@
       </section>
       <section class="instellingen-ondersteuning" aria-labelledby="ondersteuning-titel">
         <div><h2 id="ondersteuning-titel">Probleemoplossing</h2><p>Hapert een karakterstem? Controleer de verwerking of sla een rapport op.</p></div>
-        <button id="knop-stemdiagnose" class="knop knop-ghost knop-klein" type="button"
+        <button id="knop-stemdiagnose" class="knop knop-ghost knop-klein" type="button" hidden
                 aria-haspopup="dialog" aria-controls="dialoog-stemdiagnose">Stemdiagnose openen</button>
       </section>
       <p class="instellingen-voetnoot">De normalisatie werkt ook tijdens een lopende Preview. De pieklimiter beschermt de totale uitvoermix.</p>
@@ -663,6 +663,14 @@
   <dialog id="dialoog-audiopack" class="dialoog audiopack-dialoog" aria-labelledby="audiopack-titel">
     <div class="dialoog-kop"><div><p class="bovenlabel">IMPORTEREN</p><h2 id="audiopack-titel">Kies je geluiden</h2></div><button type="button" class="kruis" data-sluit="dialoog-audiopack" aria-label="Sluiten">×</button></div>
     <p id="audiopack-status" role="status">Vink mappen of losse geluiden aan. Bestanden die je niet selecteert worden niet geïmporteerd.</p>
+    <div id="audiopack-voortgang" class="audiopack-voortgang" aria-label="Voortgang van het audiopack" hidden>
+      <div class="audiopack-laadrij">
+        <span class="audiopack-spinner" aria-hidden="true"></span>
+        <strong id="audiopack-fase">Audiopack voorbereiden</strong>
+      </div>
+      <progress id="audiopack-balk" max="100" aria-label="Audiopack naar DrostSoundboard versturen"></progress>
+      <p>Het percentage geldt voor het versturen. Tijdens het verwerken blijft een laadteken zichtbaar.</p>
+    </div>
     <div class="audiopack-hulprij"><button id="audiopack-alles" type="button" class="knop knop-ghost knop-klein">Alle nieuwe</button><button id="audiopack-niets" type="button" class="knop knop-ghost knop-klein">Niets</button></div>
     <label class="audiopack-dubbelen-keuze"><input id="audiopack-ook-dubbelen" type="checkbox"> Ook al aanwezige geluiden opnieuw toevoegen</label>
     <div id="audiopack-boom" class="audiopack-boom" role="group" aria-label="Te importeren mappen en geluiden"></div>

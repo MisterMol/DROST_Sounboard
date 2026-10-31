@@ -1,6 +1,7 @@
 """Eén gebruikerskeuze voor bestaande effecten en benoemde LLVC-varianten."""
 from __future__ import annotations
 from app.audio.natuurlijke_stem.varianten import OP_ID, controleer_variant
+from app.desktop.bouwprofiel import ai_stemmen_ingeschakeld
 
 
 class StemKeuzeBediening:
@@ -22,16 +23,25 @@ class StemKeuzeBediening:
                 actief = self.favorieten.geef_stemvervormer_aan()
                 # Deze stap slaat de modelkeuze op voordat de oude keuze verdwijnt.
                 # Mislukt opslaan, dan blijft de oude opslag intact en stopt opstarten.
-                dienst.kies_variant('llvc_basis', aan=bool(actief))
+                if ai_stemmen_ingeschakeld():
+                    dienst.kies_variant('llvc_basis', aan=bool(actief))
+                else:
+                    dienst.kies_gewone_effecten()
             self.favorieten.bewaar_stemvervormer_aan(False)
             self.mixer.stel_stemvervormer_aan_in(False)
             self.favorieten.bewaar_stemprofiel('normaal')
             self.mixer.stel_stemprofiel_in('normaal')
             self.stemvoorbeeld.stel_stemprofiel_in('normaal')
             if vervang_keuze:
-                self._stemkeuze_migratiemelding = (
-                    'Je eerder gekozen leeftijdseffect is verwijderd. Nova is nu '
-                    'geselecteerd. De aan/uitstand is behouden.')
+                if ai_stemmen_ingeschakeld():
+                    self._stemkeuze_migratiemelding = (
+                        'Je eerder gekozen leeftijdseffect is verwijderd. Nova is nu '
+                        'geselecteerd. De aan/uitstand is behouden.')
+                else:
+                    self._stemkeuze_migratiemelding = (
+                        'Je eerder gekozen leeftijdseffect is verwijderd. '
+                        'De AI-stemmen zijn niet inbegrepen; Normaal is geselecteerd. '
+                        'Zet een gewoon effect aan als je stemvervorming wilt gebruiken.')
 
     def _controleer_stemkeuze_actie(self):
         if self._wordt_afgesloten: raise ValueError('De app wordt afgesloten.')
@@ -45,7 +55,10 @@ class StemKeuzeBediening:
         from app.audio.stemvervorming import controleer_kiesbaar_stemprofiel
         if not isinstance(keuze,str): raise ValueError('Kies een beschikbaar stemprofiel.')
         natuurlijk=keuze in OP_ID
-        if natuurlijk:controleer_variant(keuze)
+        if natuurlijk:
+            controleer_variant(keuze)
+            if not ai_stemmen_ingeschakeld():
+                raise ValueError('AI-stemmen zijn niet beschikbaar in de compacte versie.')
         else:controleer_kiesbaar_stemprofiel(keuze)
         with self._bescherm_toestand:
             self._controleer_stemkeuze_actie()

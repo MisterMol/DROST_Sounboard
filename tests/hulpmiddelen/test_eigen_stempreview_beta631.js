@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const bron = fs.readFileSync(path.join(__dirname, '../../app/webinterface/statisch/dashboard.js'),'utf8');
-const code=bron.slice(bron.indexOf('async function speelVoorbeeldstemAf()'),bron.indexOf('function stopVoorbeeldstem()'));
+const code=bron.slice(bron.indexOf('async function speelVoorbeeldstemAf('),bron.indexOf('function stopVoorbeeldstem()'));
 const status=[];
 const context={
   toestand:{stemvoorbeeldActief:true,stemvoorbeeldBezig:false},

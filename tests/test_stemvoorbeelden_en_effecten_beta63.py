@@ -38,6 +38,8 @@ class TestStemmenAudio(unittest.TestCase):
             self.assertLess(pad.stat().st_size, 30000)
             self.assertGreater(pad.stat().st_size, 15000)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_wav_door_filter_en_bestaande_intensiteit(self):
         neutraal = render_voorbeeld('bob', 'normaal', 100)
         lage_stem = render_voorbeeld('bob', 'heel_diep', 100)
@@ -68,6 +70,8 @@ class TestStemmenAudio(unittest.TestCase):
         self.assertGreater(lang_frames, kort_frames)
         self.assertLessEqual(lang_frames, 10 * 48000)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_alle_nieuwe_profielen_zijn_eindig(self):
         bron = np.sin(np.arange(480*55)*2*np.pi*224/48000).astype(np.float32)[:,None]*.23
         for profiel in ('jongen','meisje','oudeman','oudevrouw','xbox2010','autotune'):

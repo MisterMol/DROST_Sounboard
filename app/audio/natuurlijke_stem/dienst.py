@@ -21,6 +21,7 @@ from .varianten import Klankbewerking, catalogus, controleer_variant
 from .proces import EigenProcesgroep, start_eigen_worker
 from .prestatie import BUFFERPROFIELEN, Meetvenster, beoordeel, controleer_profiel
 from .runtimecontrole import valideer_runtime, file_sha
+from app.desktop.bouwprofiel import ai_stemmen_ingeschakeld
 
 FRAMES=2496
 HEADER=struct.Struct('<4sIII')
@@ -88,7 +89,15 @@ class NatuurlijkeStemDienst:
                 self.gekozen=keuze.get('gekozen',keuze.get('aan',False))
                 if type(self.gekozen) is not bool:raise ValueError('Ongeldige stemkeuze.')
                 if keuze.get('aan') and not self.gekozen:raise ValueError('Actieve modelstem is niet geselecteerd.')
-                if keuze.get('aan') is True:
+                if not ai_stemmen_ingeschakeld():
+                    # Een oude modelselectie mag niet actief blijven in de compacte editie,
+                    # ook niet wanneer de gebruiker deze eerder had uitgeschakeld.
+                    # Laat het instellingenbestand ongemoeid voor een eventuele rollback.
+                    self.aan = False
+                    self.gekozen = False
+                    self._state = 'uit'
+                    self._message = 'AI-stemmen zijn niet meegeleverd. Gewone effecten blijven beschikbaar.'
+                elif keuze.get('aan') is True:
                     self.stel_in(True,bewaren=False)
             except Exception:
                 self.aan=True; self.gekozen=True; self._state='fout'
@@ -119,6 +128,8 @@ class NatuurlijkeStemDienst:
 
     def stel_in(self,aan,bewaren=True,*,herladen=False):
         if type(aan) is not bool:raise ValueError('Kies aan of uit voor de proefstem.')
+        if aan and not ai_stemmen_ingeschakeld():
+            raise ValueError('AI-stemmen zijn niet inbegrepen in deze compacte installatie.')
         with self._command:
             if self._closing:raise RuntimeError('De app wordt afgesloten.')
             if self._test_only:
@@ -147,6 +158,8 @@ class NatuurlijkeStemDienst:
             return self.status()
 
     def kies_variant(self, variant, *, aan=None):
+        if not ai_stemmen_ingeschakeld():
+            raise ValueError('AI-stemmen zijn niet inbegrepen in deze compacte installatie.')
         variant=controleer_variant(variant).id
         if aan is not None and type(aan) is not bool:
             raise ValueError('Kies aan of uit voor de stemvervormer.')
@@ -199,6 +212,8 @@ class NatuurlijkeStemDienst:
 
     def test_computer(self):
         """Start een eigen synthetische proef; de bestaande aan-keuze blijft gelijk."""
+        if not ai_stemmen_ingeschakeld():
+            raise ValueError('De AI-stemtest is niet beschikbaar in deze compacte installatie.')
         with self._command:
             if self._closing:raise RuntimeError('De app wordt afgesloten.')
             if self.aan:raise ValueError('Zet de proefstem eerst uit voordat je de computer test.')
@@ -453,7 +468,7 @@ class NatuurlijkeStemDienst:
 
     def status(self):
         return dict(aan=self.aan,toestand=self._state,melding=self._message,
-                    beschikbaar=(self.root/'runtime.json').is_file(),
+                    beschikbaar=ai_stemmen_ingeschakeld() and (self.root/'runtime.json').is_file(),
                     model='LLVC-proefmodel',processor=True,
                     variant=self.variant, stemnaam=controleer_variant(self.variant).naam,
                     gekozen=self.gekozen, varianten=catalogus(),

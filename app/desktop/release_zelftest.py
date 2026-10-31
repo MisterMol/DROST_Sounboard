@@ -53,7 +53,12 @@ def controleer_gebundelde_release(uitvoerbestand: str) -> int:
             motor.sluiten()
     except Exception as fout:
         verslag['fouten'].append('stemmotor: ' + str(fout)[:180])
-    try:
+    # De compacte build levert bewust geen groot AI-model mee.
+    from app.desktop.bouwprofiel import ai_stemmen_ingeschakeld
+    compact = not ai_stemmen_ingeschakeld()
+    verslag['ai_stemmen_niet_meegeleverd'] = compact
+    if not compact:
+      try:
         import tempfile
         import logging
         import time
@@ -71,7 +76,7 @@ def controleer_gebundelde_release(uitvoerbestand: str) -> int:
                     verslag['fouten'].append('LLVC-worker: ' + motor.status()['melding'])
             finally:
                 motor.sluiten()
-    except Exception as fout:
+      except Exception as fout:
         verslag['fouten'].append('LLVC-worker: ' + str(fout)[:180])
     try:
         import velopack  # noqa: F401
@@ -85,7 +90,7 @@ def controleer_gebundelde_release(uitvoerbestand: str) -> int:
         verslag['fouten'].append('updatebron: ' + str(fout)[:180])
     verslag['geslaagd'] = all(verslag[k] for k in
                                ('vensterloos_buildtype', 'statische_bestanden', 'ffmpeg_gevonden',
-                                'audiobibliotheken', 'velopack_sdk', 'stemvoorbeelden', 'signalsmith', 'llvc_worker'))
+                                'audiobibliotheken', 'velopack_sdk', 'stemvoorbeelden', 'signalsmith')) and (compact or verslag['llvc_worker'])
     try:
         Path(uitvoerbestand).write_text(json.dumps(verslag, ensure_ascii=False, indent=2), encoding='utf-8')
     except OSError:

@@ -48,6 +48,8 @@ class TestEffectenEnIntensiteit(unittest.TestCase):
         self.assertIn('heel_hoog', PROFIELEN)
         self.assertIn('heel_diep', PROFIELEN)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_ieder_profiel_verwerkt_audio_zonder_nan_of_overflows(self):
         for naam in PROFIELEN:
             with self.subTest(naam=naam):
@@ -62,6 +64,8 @@ class TestEffectenEnIntensiteit(unittest.TestCase):
             p = Stemvervormer(naam, intensiteit=0)
             self.assertIs(p.verwerk(x), x)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_intensiteit_verandert_het_resultaat(self):
         for naam in ('robot','radio','diep','heel_hoog','alien','echo','monster','megafoon'):
             with self.subTest(naam=naam):
@@ -69,6 +73,8 @@ class TestEffectenEnIntensiteit(unittest.TestCase):
                 sterk = self._verwerk(naam, 95)
                 self.assertGreater(float(np.sqrt(np.mean((zacht - sterk)**2))), .012)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_hoog_lager_dan_heel_hoog_en_diep_lager_dan_heel_diep(self):
         def grondtoon(naam):
             x = self._verwerk(naam, 100)[24000:,0]

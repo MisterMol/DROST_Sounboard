@@ -1561,3 +1561,13 @@ body[data-kaarthoeken="strak"] .dashboard-indeling-instellingen {border-radius:7
 .audioformaat-melding[data-fout="true"] { border-color:#a46961; background:#302022; }
 .audioformaat-melding[data-fout="true"] strong { color:#ffd0c9; }
 .audioformaat-melding[hidden] { display:none !important; }
+
+/* Zichtbare voortgang voor het importeren van grote bibliotheken. */
+.audiopack-voortgang { display:grid; gap:11px; padding:15px; margin:12px 0; border:1px solid #467e73; background:#172e2d; border-radius:12px; }
+.audiopack-voortgang[hidden] { display:none; }
+.audiopack-laadrij { display:flex; align-items:center; gap:12px; color:#e6fff7; font-size:13px; }
+.audiopack-spinner { display:block; width:22px; height:22px; border:3px solid #4a665f; border-top-color:var(--accent); border-radius:50%; animation:audiopack-draai .8s linear infinite; flex-shrink:0; }
+@keyframes audiopack-draai { to { transform:rotate(360deg); } }
+.audiopack-voortgang progress { width:100%; height:17px; accent-color:var(--accent); }
+.audiopack-voortgang p { color:#bcdfd6; font-size:11px; line-height:1.5; }
+@media (prefers-reduced-motion:reduce) { .audiopack-spinner { animation:none; border-color:var(--accent); border-right-color:#4a665f; } }

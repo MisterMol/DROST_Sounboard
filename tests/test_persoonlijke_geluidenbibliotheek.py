@@ -34,7 +34,8 @@ class TestPersoonlijkeGeluidenbibliotheek(unittest.TestCase):
         self.assertEqual(len(uitkomst), 1)
         self.assertEqual(uitkomst[0].geluid_id, toegevoegd[0].geluid_id)
         self.assertEqual(uitkomst[0].eigen_naam, "discord-call-sound")
-        self.assertEqual(uitkomst[0].bestandspad, bestand)
+        # Windows kan hetzelfde tijdelijke pad onder de korte 8.3-naam tonen.
+        self.assertTrue(uitkomst[0].bestandspad.samefile(bestand))
 
     def test_opnieuw_toevoegen_maakt_geen_dubbele_regel(self):
         bestand = self.maak_audio()

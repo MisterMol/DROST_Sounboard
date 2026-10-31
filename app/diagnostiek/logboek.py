@@ -21,7 +21,7 @@ from typing import Any
 from uuid import uuid4
 
 
-VERSIE_VAN_DE_APP = "6.1.0-rc.5"
+VERSIE_VAN_DE_APP = "6.1.0-rc.6"
 
 
 @dataclass(frozen=True)

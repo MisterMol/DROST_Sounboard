@@ -33,7 +33,8 @@ class TestDecoderZonderInternControleproces(unittest.TestCase):
                 with patch('app.audio.mp4_verwerken.sys.maxsize', 2 ** 63 - 1):
                     with patch.object(imageio_ffmpeg, '__file__', str(pakket / '__init__.py')):
                         with patch.object(imageio_ffmpeg, 'get_ffmpeg_exe', side_effect=AssertionError('mag niet worden aangeroepen')):
-                            self.assertEqual(geef_meegeleverde_ffmpeg(), str(binair))
+                            # De korte Windows-padnaam en lange padnaam verwijzen naar hetzelfde bestand.
+                            self.assertTrue(Path(geef_meegeleverde_ffmpeg()).samefile(binair))
 
     def test_windows_meldt_ontbrekende_decoder_zonder_een_extern_proces_te_starten(self):
         import imageio_ffmpeg

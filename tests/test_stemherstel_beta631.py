@@ -50,6 +50,8 @@ class StemDSPHerstel(unittest.TestCase):
         np.testing.assert_array_equal(y, x[:,0])
         self.assertEqual(p._stoorzender_frames,0)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_profielen_veranderen_hoorbaar_frequentie_en_klank(self):
         t=np.arange(FS)/FS
         stem=(.21*np.sin(2*np.pi*215*t) + .04*np.sin(2*np.pi*645*t)).astype(np.float32)[:,None]
@@ -76,6 +78,8 @@ class StemDSPHerstel(unittest.TestCase):
         self.assertTrue(np.isfinite(y).all())
         self.assertEqual(p._stoorzender_frames, n)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_profielwissel_en_snelle_sterktewisseling_blijven_eindig(self):
         p=Stemvervormer('meisje')
         blok=np.full((480,1), .21, dtype=np.float32)

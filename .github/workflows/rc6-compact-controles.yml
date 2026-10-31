@@ -1,0 +1,39 @@
+name: RC6 compacte basiscontroles
+on:
+  pull_request:
+    paths:
+      - 'Bouw_Windows_Release.ps1'
+      - 'app/desktop/**'
+      - 'app/audio/natuurlijke_stem/**'
+      - 'app/webinterface/stemkeuze.py'
+      - 'app/webinterface/statisch/**'
+      - 'tests/test_rc6_compact_contract.py'
+      - '.github/workflows/rc6-compact-controles.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  controle:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Installeer dezelfde Python afhankelijkheden als de gewone tests
+        run: python -m pip install -r requirements.txt
+      - name: Controleer Python syntax
+        shell: pwsh
+        run: python -m compileall -q app tests
+      - name: Controleer RC6 compacte contracten
+        shell: pwsh
+        run: python -m unittest discover -s tests -p test_rc6_compact_contract.py -v
+      - name: Controleer PowerShell parse fouten
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path '.\Bouw_Windows_Release.ps1').Path,
+            [ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List | Out-String | Write-Host; exit 1 }

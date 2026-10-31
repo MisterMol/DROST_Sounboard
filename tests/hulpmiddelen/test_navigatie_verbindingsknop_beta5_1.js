@@ -62,6 +62,8 @@ async function main() {
     stopPreview: () => { previewsGestopt++; },
     toonMelding: () => {},
     markeerHandmatigVerbroken: () => {},
+    // Dit is geen menutest. De echte router sluit dat menu bij navigatie.
+    sluitFavorietActiemenu: () => {},
     vernieuwStatus: async () => { statusverversingen++; }
   };
   vm.createContext(context);
