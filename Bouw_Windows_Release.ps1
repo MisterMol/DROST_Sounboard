@@ -75,7 +75,7 @@ try {
     if (-not $ResultaatBestand) { $ResultaatBestand = Join-Path $release 'BOUWRESULTAAT.json' }
     Write-Host "Versie: $versie. Kanaal: $kanaal. Afzonderlijke bouwmap: $release"
     $config = Join-Path $werkmap 'releasebron.json'
-    $configInhoud = @{repository_url=$bronurl; channel=$kanaal} | ConvertTo-Json -Compress
+    $configInhoud = @{repository_url=$bronurl; channel=$kanaal; ai_stemmen_meeleveren=(-not $Compact)} | ConvertTo-Json -Compress
     [System.IO.File]::WriteAllText($config, $configInhoud, [System.Text.UTF8Encoding]::new($false))
 
     if ($Compact) {
