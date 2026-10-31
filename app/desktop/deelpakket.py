@@ -37,6 +37,8 @@ def maak_deelmap(installer, uitvoer, versie, exerapport, stemrapport):
     if exestatus.get('geslaagd') is not True or exestatus.get('versie')!=versie:
         raise ValueError('De controle van de nieuwe hoofdapp is niet geslaagd of hoort bij een andere versie.')
     compact = stemstatus.get('optioneel_niet_meegeleverd') is True
+    if compact and any(stemstatus.get(veld) is True for veld in ('passed', 'finite', 'reset_ok')):
+        raise ValueError('Compacte build mag geen geslaagde AI-test claimen.')
     if (not compact and (stemstatus.get('passed') is not True or stemstatus.get('finite') is not True
             or stemstatus.get('reset_ok') is not True
             or stemstatus.get('model_sha256')!='cceb7ab9621f84d62d283725ae3281cacb04f762d6a088fe3e97c1a29d4b8c0e')):
