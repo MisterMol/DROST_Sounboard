@@ -1,0 +1,37 @@
+name: Complete offline installer RC5
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'Complete_Windows_Installatie.iss'
+      - 'Bouw_Complete_Installer.ps1'
+      - 'hulpmiddelen/complete_installer/**'
+      - '.github/workflows/complete-offline-installatie.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inno Setup installeren
+        shell: powershell
+        run: choco install innosetup --yes --no-progress
+      - name: Complete installer bouwen en bestanden verifiëren
+        shell: powershell
+        run: .\Bouw_Complete_Installer.ps1
+      - name: Grootte controleren
+        shell: powershell
+        run: |
+          $output='dist-complete\uitvoer\DrostSoundboard-Complete-Setup.exe'
+          if (-not (Test-Path $output)) { throw 'Complete Setup ontbreekt.' }
+          if ((Get-Item $output).Length -lt 300MB) { throw 'Pakket bevat niet alle onderdelen.' }
+          (Get-FileHash $output -Algorithm SHA256).Hash
+      - name: Eén complete Windows-EXE bewaren
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrostSoundboard-Complete-Setup-RC5
+          path: dist-complete/uitvoer/DrostSoundboard-Complete-Setup.exe
+          compression-level: 0
+          if-no-files-found: error
