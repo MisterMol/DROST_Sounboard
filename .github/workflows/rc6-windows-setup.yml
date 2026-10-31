@@ -1,0 +1,76 @@
+name: RC6 installatie-EXE met geluidskeuze bouwen
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/rc6-windows-setup.yml'
+      - 'hulpmiddelen/rc6_automatische_bouw/**'
+      - 'Bouw_Windows_Release.ps1'
+      - 'Bouw_Installerstarter.ps1'
+      - 'hulpmiddelen/installerstarter/**'
+      - 'app/desktop/**'
+      - 'app/audio/**'
+      - 'app/webinterface/**'
+      - 'tests/**'
+permissions:
+  contents: read
+jobs:
+  windows-setup:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - name: Broncode ophalen
+        uses: actions/checkout@v4
+      - name: Python 3.13 voor build
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: .NET SDK 8 voor Velopack
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Bouwprogramma's op Windows-runner gereedmaken
+        shell: powershell
+        run: |
+          python -m venv .venv
+          dotnet tool install --global vpk --version 1.2.161
+      - name: Oorspronkelijke normale DSP-motor uit officiële RC5 Setup controleren
+        shell: powershell
+        run: .\hulpmiddelen\rc6_automatische_bouw\Haal_Audiomotor_Uit_RC5.ps1
+      - name: RC6 Compact volledig testen, verpakken en automatische EXE-test uitvoeren
+        shell: powershell
+        run: .\Bouw_Windows_Release.ps1 -Compact -GitHubRepository "https://github.com/MisterMol/DROST_Sounboard"
+      - name: Controleer de interne RC6 Setup voordat deze wordt gebundeld
+        shell: powershell
+        run: |
+          # De bouw maakt ook een extra deelmap met een kopie van Setup.
+          # Controleer daarom uitsluitend de Setup direct in de eigen Bouw-map.
+          $mappen=@(Get-ChildItem 'release-velopack' -Directory -Filter 'Bouw-6.1.0-rc.6-*')
+          if ($mappen.Count -ne 1) { throw 'Verwacht precies één nieuwe RC6 bouwmap.' }
+          $exe=Get-Item -LiteralPath (Join-Path $mappen[0].FullName 'DrostSoundboard.Desktop-beta-Setup.exe')
+          if ($exe.Length -lt 100KB) { throw 'RC6 Setup is onwaarschijnlijk klein.' }
+          $sha=(Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host ('RC6 Setup grootte: ' + [math]::Round($exe.Length/1MB,1) + ' MiB')
+          Write-Host ('SHA256: '+$sha)
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ('De interne RC6 Setup is gecontroleerd ('+[math]::Round($exe.Length/1MB,1)+' MiB, SHA256 '+$sha+'). De enige gebruikersdownload is de EXE met geluidskeuze hieronder. Test op een echte Windows-pc.')
+      - name: Bouw zichtbaar RC6 installatievenster met soundpackkeuze
+        shell: powershell
+        run: .\Bouw_Installerstarter.ps1 -RC6Bundel
+      - name: Verpak gecontroleerde compacte RC6 Setup in één EXE
+        shell: powershell
+        run: .\hulpmiddelen\installerstarter\Maak_RC6_Bundel.ps1
+      - name: Controleer het complete zelfvoorzienende installatiebestand
+        shell: powershell
+        run: |
+          $mappen=@(Get-ChildItem 'release-velopack' -Directory -Filter 'Bouw-6.1.0-rc.6-*')
+          if ($mappen.Count -ne 1) { throw 'Onverwacht aantal RC6 bouwmappen.' }
+          $setup=Join-Path $mappen[0].FullName 'DrostSoundboard.Desktop-beta-Setup.exe'
+          python .\hulpmiddelen\installerstarter\Controleer_RC6_Bundel.py 'dist-installerstarter/DrostSoundboard-Installeren-RC6-Test.exe' "$setup"
+          if ($LASTEXITCODE -ne 0) { throw 'Installatiebestand is beschadigd.' }
+      - name: Alleen de zichtbare RC6-installatie-EXE aanbieden
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze
+          path: dist-installerstarter/DrostSoundboard-Installeren-RC6-Test.exe
+          compression-level: 0
+          if-no-files-found: error
