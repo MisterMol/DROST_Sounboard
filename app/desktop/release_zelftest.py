@@ -54,7 +54,8 @@ def controleer_gebundelde_release(uitvoerbestand: str) -> int:
     except Exception as fout:
         verslag['fouten'].append('stemmotor: ' + str(fout)[:180])
     # De compacte build levert bewust geen groot AI-model mee.
-    compact = not (Path(sys.executable).resolve().parent / '_internal' / 'stem-runtime' / 'runtime.json').is_file() if getattr(sys, 'frozen', False) else not (Path(__file__).resolve().parents[2] / 'stem-runtime' / 'runtime.json').is_file()
+    from app.desktop.bouwprofiel import ai_stemmen_ingeschakeld
+    compact = not ai_stemmen_ingeschakeld()
     verslag['ai_stemmen_niet_meegeleverd'] = compact
     if not compact:
       try:
