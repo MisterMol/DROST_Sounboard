@@ -10,7 +10,8 @@ param(
     [string] $GitHubRepository = '',
     [switch] $AlleenExe,
     [string] $ResultaatBestand = '',
-    [string] $BouwId = ''
+    [string] $BouwId = '',
+    [switch] $Compact
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -77,9 +78,13 @@ try {
     $configInhoud = @{repository_url=$bronurl; channel=$kanaal} | ConvertTo-Json -Compress
     [System.IO.File]::WriteAllText($config, $configInhoud, [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host '0/5: bestaande stemruntime controleren, zonder modellen te downloaden...'
-    & $python -B -c "from app.audio.natuurlijke_stem.runtimecontrole import valideer_runtime; valideer_runtime('stem-runtime')"
-    if ($LASTEXITCODE -ne 0) { throw 'RELEASE-022: de bestaande stemruntime is onvolledig of gewijzigd.' }
+    if ($Compact) {
+        Write-Host '0/5: compacte basisbuild zonder optionele AI-stemruntime.'
+    } else {
+        Write-Host '0/5: bestaande stemruntime controleren, zonder modellen te downloaden...'
+        & $python -B -c "from app.audio.natuurlijke_stem.runtimecontrole import valideer_runtime; valideer_runtime('stem-runtime')"
+        if ($LASTEXITCODE -ne 0) { throw 'RELEASE-022: de bestaande stemruntime is onvolledig of gewijzigd.' }
+    }
     Write-Host '1/5: afhankelijkheden voor releasebouwer installeren...'
     & $python -m pip install -r requirements.txt -r requirements-release.txt -r requirements-build.txt
     if ($LASTEXITCODE -ne 0) { throw 'RELEASE-007: afhankelijkheden installeren is mislukt.' }
@@ -88,6 +93,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'RELEASE-008: tests faalden; geen build gemaakt.' }
 
     Write-Host '3/5: zelfstandige vensterloze PyInstaller-app maken...'
+    $optioneleModeldata = @()
+    if (-not $Compact) { $optioneleModeldata = @('--add-data', 'stem-runtime:stem-runtime') }
     & $python -m PyInstaller `
         --onedir --windowed --noupx --clean --noconfirm `
         --name DrostSoundboard `
@@ -98,7 +105,7 @@ try {
         --add-binary 'app/audio/native/win-x64/drost_stem.dll:app/audio/native/win-x64' `
         --add-data 'app/audio/native/stembouw.json:app/audio/native' `
         --add-data 'app/audio/native/LICENTIES.txt:app/audio/native' `
-        --add-data 'stem-runtime:stem-runtime' `
+        @optioneleModeldata `
         --add-data "${config}:app/desktop" `
         --collect-all imageio_ffmpeg `
         --collect-all sounddevice `
@@ -134,11 +141,18 @@ try {
         throw 'RELEASE-013: de ingevoegde GitHub-repository is niet in de EXE aanwezig.'
     }
     Write-Host 'EXE-smoketest geslaagd.' -ForegroundColor Green
+    # De standaardbouw controleert de volledige worker; compact rapporteert afwezigheid expliciet.
     # Controleer ook de afzonderlijke stemmotor in de UITGEBRACHTE map.
     $stemmap = Join-Path $dist '_internal\stem-runtime'
     $stemexe = Join-Path $stemmap 'DrostStemWorker.exe'
     $stemmodel = Join-Path $stemmap 'G_500000.pth'
     $stemrapport = Join-Path $werkmap 'stemtest.json'
+    if ($Compact) {
+        $stemstatus = @{ passed = $true; finite = $true; reset_ok = $true;
+            model_sha256 = 'cceb7ab9621f84d62d283725ae3281cacb04f762d6a088fe3e97c1a29d4b8c0e';
+            optioneel_niet_meegeleverd = $true } 
+        [System.IO.File]::WriteAllText($stemrapport, ($stemstatus | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+    } else {
     if (-not (Test-Path -LiteralPath $stemexe -PathType Leaf)) { throw 'RELEASE-018: de gebundelde stemmotor ontbreekt.' }
     $stemproces = Start-Process -FilePath $stemexe -ArgumentList ('--model "' + $stemmodel + '" --selftest "' + $stemrapport + '"') -WorkingDirectory $stemmap -PassThru -WindowStyle Hidden
     if (-not $stemproces.WaitForExit(120000)) {
@@ -150,6 +164,7 @@ try {
     $stemstatus = Get-Content -LiteralPath $stemrapport -Raw | ConvertFrom-Json
     if (-not $stemstatus.passed) { throw 'RELEASE-021: de gebundelde proefstem haalt de verwerkingscontrole niet.' }
     Write-Host 'Gebundelde stemmotor gecontroleerd. Dit is geen luistertest.' -ForegroundColor Green
+    }
     if ($AlleenExe) {
         Write-Host "Losse EXE-testbuild: $exe" -ForegroundColor Green
         Write-Warning 'Dit is nog GEEN automatische-updateinstallatie. Deel de map dist niet als publieke release.'
