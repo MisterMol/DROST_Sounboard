@@ -22,7 +22,10 @@ class StemKeuzeBediening:
                 actief = self.favorieten.geef_stemvervormer_aan()
                 # Deze stap slaat de modelkeuze op voordat de oude keuze verdwijnt.
                 # Mislukt opslaan, dan blijft de oude opslag intact en stopt opstarten.
-                dienst.kies_variant('llvc_basis', aan=bool(actief))
+                if dienst.status().get('beschikbaar'):
+                    dienst.kies_variant('llvc_basis', aan=bool(actief))
+                else:
+                    dienst.kies_gewone_effecten()
             self.favorieten.bewaar_stemvervormer_aan(False)
             self.mixer.stel_stemvervormer_aan_in(False)
             self.favorieten.bewaar_stemprofiel('normaal')
@@ -30,7 +33,7 @@ class StemKeuzeBediening:
             self.stemvoorbeeld.stel_stemprofiel_in('normaal')
             if vervang_keuze:
                 self._stemkeuze_migratiemelding = (
-                    'Je eerder gekozen leeftijdseffect is verwijderd. Nova is nu '
+                    'Je eerder gekozen leeftijdseffect is verwijderd. Normale effecten zijn nu '
                     'geselecteerd. De aan/uitstand is behouden.')
 
     def _controleer_stemkeuze_actie(self):
