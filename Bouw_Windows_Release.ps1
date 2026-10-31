@@ -148,8 +148,8 @@ try {
     $stemmodel = Join-Path $stemmap 'G_500000.pth'
     $stemrapport = Join-Path $werkmap 'stemtest.json'
     if ($Compact) {
-        $stemstatus = @{ passed = $true; finite = $true; reset_ok = $true;
-            model_sha256 = 'cceb7ab9621f84d62d283725ae3281cacb04f762d6a088fe3e97c1a29d4b8c0e';
+        if (Test-Path -LiteralPath $stemmap) { throw 'RELEASE-029: AI-stemruntime toch in compacte build.' }
+        $stemstatus = @{ passed = $false; finite = $false; reset_ok = $false;
             optioneel_niet_meegeleverd = $true } 
         [System.IO.File]::WriteAllText($stemrapport, ($stemstatus | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
     } else {
