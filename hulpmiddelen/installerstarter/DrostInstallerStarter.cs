@@ -320,14 +320,18 @@ internal sealed class Installer : Form {
                           "Ga naar Bibliotheek > Audiopack importeren om het zelf toe te voegen."
                         : "De app werkt. Het geluidenpakket is nog niet gedownload.\n" +
                           "Je kunt het later via de officiële GitHub Releases ophalen.";
-                    string ophalen = zipBeschikbaar ? "" :
-                        "1. Download DrostSoundboard_startersoundpack.zip via " +
-                        "https://github.com/MisterMol/DROST_Sounboard/releases\n";
+                    string stappen = zipBeschikbaar
+                        ? "1. Open DrostSoundboard en ga naar Bibliotheek > Audiopack importeren.\n" +
+                          "2. Selecteer het ZIP-bestand in Downloads, kies Alle nieuwe en klik " +
+                          "Geselecteerde geluiden importeren."
+                        : "1. Download DrostSoundboard_startersoundpack.zip via " +
+                          "https://github.com/MisterMol/DROST_Sounboard/releases\n" +
+                          "2. Open DrostSoundboard en ga naar Bibliotheek > Audiopack importeren.\n" +
+                          "3. Selecteer het ZIP-bestand in Downloads, kies Alle nieuwe en klik " +
+                          "Geselecteerde geluiden importeren.";
                     MessageBox.Show(this, "DrostSoundboard is geïnstalleerd, maar de startergeluiden zijn nog niet toegevoegd.\n\n" +
-                        fout.Message + "\n\nHandmatig toevoegen:\n" + ophalen +
-                        "2. Open DrostSoundboard en ga naar Bibliotheek > Audiopack importeren.\n" +
-                        "3. Selecteer het ZIP-bestand in Downloads, kies Alle nieuwe en klik " +
-                        "Geselecteerde geluiden importeren.\nDe ZIP hoef je niet uit te pakken.",
+                        fout.Message + "\n\nHandmatig toevoegen:\n" + stappen +
+                        "\nDe ZIP hoef je niet uit te pakken.",
                         "Soundpack nog niet toegevoegd", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             } else {
