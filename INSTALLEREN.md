@@ -2,6 +2,43 @@
 
 ## Voor gebruikers: één EXE
 
+### Zichtbare RC6-installatie testen
+
+De technische `DrostSoundboard.Desktop-beta-Setup.exe` is een vrijwel stille
+Velopack-installer. **Dat is niet de bedoelde download voor eindgebruikers.**
+
+Gebruik voor een test de nieuwe **DrostSoundboard-Installeren-RC6-Test.exe**,
+te vinden onder het GitHub Actions-artefact
+`DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze`.
+
+Deze nieuwe EXE bevat de complete compacte RC6 Setup en opent eerst een echt
+installatievenster. De stappen voor een tester zijn:
+
+1. Download het bouwartefact en haal de EXE uit het GitHub-artefact-ZIP.
+   Op de testcomputer heb je alleen de EXE nodig.
+2. Start die EXE met een dubbelklik.
+3. Kies eventueel **Ook het startersoundpack met 141 geluiden toevoegen**.
+   Die keuze is standaard uit. Het pakket vergt ongeveer 310 MiB extra download.
+4. Klik **Installeren**. De installer toont de voortgang, start de
+   bijgevoegde RC6 Setup en controleert of DrostSoundboard aanwezig is.
+5. Als je de geluiden hebt gekozen, worden ze daarna opgehaald en waar
+   mogelijk automatisch aan de bibliotheek toegevoegd.
+6. Klik **DrostSoundboard openen**.
+
+**Zelf importeren wanneer nodig:** het ZIP-bestand blijft in Downloads staan.
+Open DrostSoundboard, ga naar **Bibliotheek**, kies
+**Audiopack importeren**, selecteer de ZIP, kies **Alle nieuwe**
+en klik **Geselecteerde geluiden importeren**. De ZIP hoeft niet uitgepakt
+te worden.
+
+Voor publicatie testen: installeer op een tweede Windows-pc, start
+de app, speel geluiden af, controleer de gewone stemfilters, voeg een
+soundpack toe en test afsluiten en herinstalleren. De test-EXE is
+nog niet digitaal ondertekend. Schakel Windows-beveiliging niet uit.
+
+### Na afronding van de praktijktest
+
+
 1. Download **DrostSoundboard-Installeren.exe** via de officiële [GitHub Releases](https://github.com/MisterMol/DROST_Sounboard/releases).
 2. Dubbelklik op de EXE en kies **Installeren**.
 3. De installer haalt de officiële Windows-app op, controleert de download en voert Setup uit. De voortgang verschijnt in het installatievenster.
