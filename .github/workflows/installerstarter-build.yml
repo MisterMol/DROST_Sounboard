@@ -1,0 +1,29 @@
+name: Installerstarter bouwen
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Bouw_Installerstarter.ps1'
+      - 'hulpmiddelen/installerstarter/**'
+      - '.github/workflows/installerstarter-build.yml'
+  pull_request:
+    paths:
+      - 'Bouw_Installerstarter.ps1'
+      - 'hulpmiddelen/installerstarter/**'
+      - '.github/workflows/installerstarter-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bouw de Windows installerstarter
+        shell: powershell
+        run: .\Bouw_Installerstarter.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DrostSoundboard-Installeren-Windows
+          path: dist-installerstarter/DrostSoundboard-Installeren.exe
+          if-no-files-found: error
