@@ -1,6 +1,7 @@
 """Eén gebruikerskeuze voor bestaande effecten en benoemde LLVC-varianten."""
 from __future__ import annotations
 from app.audio.natuurlijke_stem.varianten import OP_ID, controleer_variant
+from app.desktop.bouwprofiel import ai_stemmen_ingeschakeld
 
 
 class StemKeuzeBediening:
@@ -22,7 +23,7 @@ class StemKeuzeBediening:
                 actief = self.favorieten.geef_stemvervormer_aan()
                 # Deze stap slaat de modelkeuze op voordat de oude keuze verdwijnt.
                 # Mislukt opslaan, dan blijft de oude opslag intact en stopt opstarten.
-                if dienst.status().get('beschikbaar'):
+                if ai_stemmen_ingeschakeld():
                     dienst.kies_variant('llvc_basis', aan=bool(actief))
                 else:
                     dienst.kies_gewone_effecten()
@@ -50,7 +51,7 @@ class StemKeuzeBediening:
         natuurlijk=keuze in OP_ID
         if natuurlijk:
             controleer_variant(keuze)
-            if not self.natuurlijke_stem.status().get('beschikbaar'):
+            if not ai_stemmen_ingeschakeld():
                 raise ValueError('AI-stemmen zijn niet beschikbaar in de compacte versie.')
         else:controleer_kiesbaar_stemprofiel(keuze)
         with self._bescherm_toestand:
