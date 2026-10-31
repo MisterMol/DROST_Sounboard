@@ -19,7 +19,10 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - name: Bouw de Windows installerstarter
+      - name: Controleer ook de bundelvariant van het installatievenster
+        shell: powershell
+        run: .\Bouw_Installerstarter.ps1 -RC6Bundel
+      - name: Bouw de kleine online installerstarter voor publieke releases
         shell: powershell
         run: .\Bouw_Installerstarter.ps1
       - uses: actions/upload-artifact@v4
