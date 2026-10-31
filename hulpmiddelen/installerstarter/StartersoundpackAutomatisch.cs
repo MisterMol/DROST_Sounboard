@@ -63,8 +63,12 @@ internal static class StartersoundpackAutomatisch {
                             "DrostSoundboard", Bestandsnaam);
     }
     static string Launcher() {
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                            "DrostSoundboard.Desktop", "DrostSoundboard.exe");
+        string lokaal = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        foreach (string kandidaat in new[] {
+            Path.Combine(lokaal, "DrostSoundboard.Desktop", "current", "DrostSoundboard.exe"),
+            Path.Combine(lokaal, "DrostSoundboard.Desktop", "DrostSoundboard.exe")
+        }) if (File.Exists(kandidaat)) return kandidaat;
+        return "";
     }
     static string BepaalLokaalAdres(out string procesId) {
         procesId = null;
@@ -124,9 +128,12 @@ internal static class StartersoundpackAutomatisch {
         if (string.IsNullOrEmpty(releaseTag) ||
             !Regex.IsMatch(releaseTag, @"\Av\d+\.\d+\.\d+(?:-(?:beta|rc)\.\d+(?:\.\d+)?)?\z"))
             throw new InvalidDataException("Onbekende versie voor automatische import.");
-        string adres = await WachtOpJuisteApp(http, releaseTag.Substring(1), toon);
+        // Lokale HTTP-verzoeken mogen NOOIT via een systeemproxy naar internet.
+        using (var lokaal = new HttpClient(new HttpClientHandler { UseProxy = false })) {
+        lokaal.Timeout = TimeSpan.FromMinutes(20);
+        string adres = await WachtOpJuisteApp(lokaal, releaseTag.Substring(1), toon);
         // Het schrijftoken staat alleen in de lokale HTML. Geen appgegevens of token naar GitHub.
-        string html = await http.GetStringAsync(adres + "/");
+        string html = await lokaal.GetStringAsync(adres + "/");
         var token = Regex.Match(html, @"<meta\s+name=""drost-token""\s+content=""([A-Za-z0-9_-]{32,128})""",
                                 RegexOptions.IgnoreCase);
         if (!token.Success)
@@ -147,13 +154,14 @@ internal static class StartersoundpackAutomatisch {
             // Na 100% upload begint de Python-server ZIP-validatie en import.
             // Deze status is bewust onbepaald: geen nepvoortgang melden.
             toon("Startersoundpack naar DrostSoundboard versturen...", 0);
-            using (var antwoord = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead)) {
+            using (var antwoord = await lokaal.SendAsync(request, HttpCompletionOption.ResponseContentRead)) {
                 string tekst = await antwoord.Content.ReadAsStringAsync();
                 if (!antwoord.IsSuccessStatusCode)
                     throw new InvalidDataException("De import werd geweigerd: "
                         + tekst.Substring(0, Math.Min(450, tekst.Length)));
                 return Waarde(Json(tekst), "melding");
             }
+        }
         }
     }
 }
