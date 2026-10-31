@@ -1,71 +1,63 @@
-# DrostSoundboard RC6 Compact: één EXE voor gebruikers
+# DrostSoundboard RC6 Compact: een duidelijke Windows-installer
 
-Gebruikers installeren DrostSoundboard uitsluitend via een Windows EXE.
-Zij hoeven geen Git, Python, .NET SDK, PowerShell of `winget` te openen.
-De kleine installer downloadt de echte Setup en voert die uit. Het startersoundpack
-is een **optionele** keuze van circa 310 MiB. Wanneer gekozen probeert de
-installer de geluiden na de appinstallatie automatisch toe te voegen.
-Dubbele geluiden worden overgeslagen, en een bestaand geluidenarchief
-wordt niet verwijderd. Als automatische import mislukt, staat de ZIP nog in Downloads.
+## Voor de gebruiker
 
-## Windows Setup en echte éénklikinstallatie automatisch bouwen op GitHub
+Download en open alleen `DrostSoundboard-Installeren-RC6-Test.exe`.
+Deze EXE bevat de compacte RC6-app en toont direct het installatiescherm.
+Je hoeft geen Git, Python, .NET SDK, PowerShell of `winget` te installeren.
 
-De nieuwe workflow levert twee artefacten op. De technische
-`DrostSoundboard-RC6-Compact-Setup` is alleen bedoeld om de verpakte app
-afzonderlijk te controleren. Dit is een vrijwel stille Velopack Setup.
+De installer laat je kiezen of je ook het **optionele startersoundpack met
+141 geluiden** wilt toevoegen. Dat is ongeveer 310 MiB extra download
+en staat standaard uitgevinkt. Na installatie probeert het venster het
+soundpack automatisch te importeren. Bij een importprobleem blijft de
+gedownloade ZIP in Downloads staan en krijg je handmatige instructies.
+Dubbele geluiden worden overgeslagen; de bestaande bibliotheek blijft bewaard.
 
-De **gebruikersgerichte testinstaller** heet
-`DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze`. Deze bevat één
-`DrostSoundboard-Installeren-RC6-Test.exe`, met de compacte
-RC6 Setup al inbegrepen. Die toont een echt Windows-venster met uitleg,
-een optioneel vinkje voor 141 startergeluiden, voortgang en de knop om
-DrostSoundboard te openen. Dit bestand is circa 73 MiB plus een klein
-installatievenster. Voor alleen de app is geen internet nodig tijdens de
-testinstallatie. Als iemand het soundpack aanvinkt, wordt dit afzonderlijk
-vanaf de bestaande officiële Release gedownload en in de app geïmporteerd.
+## Slechts een GitHub Actions-download
 
-De losse kleine internetstarter blijft voor latere publieke releases bestaan,
-maar hoort niet bij deze zelfstandige RC6-test. Publiceer de nieuwe versie
-pas nadat het volledige gebruikerspad op Windows is gecontroleerd.
+Gebruik de workflow **RC6 installatie-EXE met geluidskeuze bouwen**.
+Bij een geslaagde build verschijnt **uitsluitend** dit gebruikersartefact:
 
-## Technische RC6-bouw op GitHub
+`DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze`
 
-Gebruik de workflow **RC6 automatisch compacte Windows Setup bouwen** onder
-GitHub Actions. Deze workflow voert de volledige test- en releasebouw uit
-op een tijdelijke Windows-computer in GitHub Actions.
+Na downloaden en uitpakken bevat dat precies de zelfstandige
+`DrostSoundboard-Installeren-RC6-Test.exe` van circa 73 MiB.
 
-De GitHub-runner haalt één specifieke, via SHA256 vastgepinde officiële RC5
-Setup op, pakt die in een geïsoleerde map uit en controleert
-`drost_stem.dll` op de verwachte SHA256.
-De kleine native DSP-motor is nodig voor de gewone stemfilters.
-De zware LLVC AI-stemruntime blijft **buiten** de compacte RC6.
+De technische `DrostSoundboard.Desktop-beta-Setup.exe` (Velopack) wordt
+**wel intern gebouwd en gecontroleerd**, want deze Setup zit in de uiteindelijke
+gebruikers-EXE. Hij wordt **niet afzonderlijk als Actions-artefact aangeboden**.
+De vroegere dubbele download `DrostSoundboard-RC6-Compact-Setup` vervalt.
+Historische workflow-runs die de oude opzet gebruikten kunnen nog oudere
+artefacten tonen; nieuwe runs tonen alleen de installer met geluidskeuze.
 
-Na geslaagde bouw verschijnt het artefact
-**DrostSoundboard-RC6-Compact-Setup**, dat één
-`DrostSoundboard.Desktop-beta-Setup.exe` bevat.
-GitHub downloadt dit bouwartefact als ZIP; pak de ZIP uit om de EXE te testen.
-De workflow publiceert de nieuwe Setup **niet automatisch** als GitHub Release.
-Daarvoor moeten de werkelijke Windows-installatie en het geluid nog worden getest.
-De grootte van de RC6 Setup verschijnt in het Actions-runoverzicht.
+## Hoe de Windows-bouw werkt
 
-De kleine **DrostSoundboard-Installeren.exe** wordt apart automatisch gebouwd
-via de workflow **Installerstarter bouwen**. Hij kiest pas de nieuwe RC6 Setup
-nadat een geteste RC6-release daadwerkelijk is gepubliceerd.
-Tot dat moment verwijst de huidige openbare installer nog naar RC5.
-Verander de bestaande RC5-downloads niet.
+GitHub Actions voert de tests uit op een tijdelijke Windows-computer,
+haalt de gewone DSP-motor uit de gecontroleerde officiele RC5 Setup en
+valideert die tegen de vastgelegde SHA256. De grote AI-stemmen Nova, Ruben,
+Linde en Omroeper worden niet meegenomen. Daarna wordt de compacte app
+verpakt als technische Velopack Setup, wordt die Setup ingebed in het
+installatievenster en wordt de ingebedde inhoud opnieuw op SHA256
+gecontroleerd. Alleen het resultaat voor gebruikers wordt aangeboden.
 
-## Testen vóór publieke release
+Er wordt niets automatisch als nieuwe publieke GitHub-release uitgegeven.
+De gepubliceerde RC5 blijft ongewijzigd. De kleine online installerstarter
+uit de aparte workflow wordt pas voor RC6 gebruikt nadat de juiste
+nieuwe release gepubliceerd is.
 
-Test een verse Windows-installatie, bestaande favorieten, diep en hoog,
-lokale preview, microfoon en VB-CABLE, bibliotheekimport, app-afsluiten en
-herstarten. Controleer dat Nova/Ruben/Linde/Omroeper ontbreken. De scripts
-verifiëren bestanden en gedrag, maar vervangen deze praktijktest niet.
+## Testen voordat je deze versie uitgeeft
 
-VB-CABLE is een aparte Windows-driver en vereist zo nodig gebruikersgoedkeuring
-en een herstart. De app kan hem niet ongemerkt als onderdeel van een gewone
-gebruikersinstallatie toevoegen.
+Test op een Windows-computer zonder ontwikkelomgeving: het installatievenster,
+de keuze voor het startersoundpack, automatische en handmatige bibliotheekimport,
+geluid en gewone stemfilters, microfoon, VB-CABLE indien aanwezig, afsluiten,
+starten en opnieuw installeren. Controleer dat de verdwenen AI-stemmen niet
+aangeboden worden. Een groene GitHub-build is geen praktijktest.
+
+VB-CABLE is een afzonderlijke Windows-driver en kan administratorrechten
+en een herstart vereisen. De testinstaller installeert deze niet ongemerkt.
+De EXE is nog niet digitaal ondertekend. Schakel Windows-beveiliging niet uit.
 
 ## Alleen voor ontwikkelaars
 
-De bestaande PowerShell-bouwer blijft beschikbaar voor wie de Windows-build
-liever lokaal uitvoert, maar gewone gebruikers hoeven deze route niet te kennen.
+De bestaande lokale PowerShell-bouwer blijft voor ontwikkelaars bestaan,
+maar gebruikers hoeven geen bouwcommando's uit te voeren.
