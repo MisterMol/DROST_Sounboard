@@ -88,6 +88,15 @@ try {
     Write-Host '1/5: afhankelijkheden voor releasebouwer installeren...'
     & $python -m pip install -r requirements.txt -r requirements-release.txt -r requirements-build.txt
     if ($LASTEXITCODE -ne 0) { throw 'RELEASE-007: afhankelijkheden installeren is mislukt.' }
+    # De basisstemfilters hebben nog wel de kleine, afzonderlijke native motor nodig.
+    # De grote AI-modelruntime is optioneel; deze DLL is dat niet.
+    $dspMotor = Join-Path $project 'app\audio\native\win-x64\drost_stem.dll'
+    if (-not (Test-Path -LiteralPath $dspMotor -PathType Leaf)) {
+        throw 'RELEASE-030: drost_stem.dll ontbreekt. Deze DLL is ook in RC6 Compact nodig voor gewone stemfilters.'
+    }
+    Write-Host 'Release-icoon en splash controleren of vanuit het bestaande logo aanmaken...'
+    & $python -B -m hulpmiddelen.bereid_releaseassets_voor
+    if ($LASTEXITCODE -ne 0) { throw 'RELEASE-031: Windows-releaseafbeeldingen ontbreken of verschillen van het logo.' }
     Write-Host '2/5: volledige automatische tests draaien...'
     & $python -m unittest discover -s tests -q
     if ($LASTEXITCODE -ne 0) { throw 'RELEASE-008: tests faalden; geen build gemaakt.' }
