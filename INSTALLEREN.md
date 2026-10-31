@@ -35,3 +35,15 @@ De Setup bevat geen persoonlijke geluiden of mappen. Die kun je meenemen door op
 Controleer de gekozen microfoon, VB-CABLE en het invoerapparaat van het ontvangende programma. Sluit DrostSoundboard volledig af via **App afsluiten** of het systeemvak, niet alleen door de browsertab te sluiten.
 
 De broncodecloneroute bevat geen volledige stemruntime. Gebruik de Windows Setup voor de volledige app. Problemen kun je melden via [GitHub Issues](https://github.com/MisterMol/DROST_Sounboard/issues).
+
+## Zichtbaar installeren en optioneel startersoundpack
+
+Ga naar [GitHub Releases](https://github.com/MisterMol/DROST_Sounboard/releases). Na de eerste succesvolle build en publicatie is er een **kleine installerstarter**, `DrostSoundboard-Installeren.exe`, onder Assets. Deze starter moet eerst door de beheerder als Release-asset worden toegevoegd. Hij toont direct een venster, downloadt de officiële Windows Setup met procentuele voortgang en kan optioneel het startersoundpack meenemen. Hij controleert de bestanden met de gepubliceerde SHA256. De bestaande rechtstreekse Setup-download blijft beschikbaar.
+
+**Los downloaden:** [Setup voor RC5](https://github.com/MisterMol/DROST_Sounboard/releases/download/v6.1.0-rc.5/DrostSoundboard.Desktop-beta-Setup.exe) en [startersoundpack](https://github.com/MisterMol/DROST_Sounboard/releases/download/v6.1.0-rc.5/DrostSoundboard_startersoundpack.zip). Het soundpack bevat 141 geluiden in 11 mappen. Pak de ZIP niet uit. Ga in de app naar **Bibliotheek > Audiopack importeren**, selecteer het ZIP-bestand, kies geluiden of **Alle nieuwe**, en klik **Geselecteerde geluiden importeren**. Het kan even duren voordat een audiopack van honderden MB is verwerkt.
+
+**Bestaande installatie:** de nieuwe installer bewaart je instellingen. Voor een echt lege installatie exporteer je eerst eventueel je bibliotheek, sluit je DrostSoundboard af via het systeemvak, verwijder je de app via Windows Instellingen > Apps, en verwijder je daarna alleen als je alle gegevens wilt wissen de map `%LOCALAPPDATA%\DrostSoundboard`. Hiermee verdwijnen ook favorieten en geïmporteerde geluiden. Start Windows opnieuw voor een schone herinstallatie.
+
+**Voor de beheerder:** bouw de installerstarter op Windows met `Bouw_Installerstarter.ps1` of via **Actions > Installerstarter bouwen** en download het workflowartefact. Test op een schone pc. Voeg de geteste `DrostSoundboard-Installeren.exe` vervolgens handmatig bij de gewenste GitHub Release onder Assets toe. De reeds gepubliceerde RC5 Setup blijft ongewijzigd. Een aangepaste applicatie heeft een **nieuwe releaseversie en Windows-build** nodig.
+
+De kleine starter is niet digitaal ondertekend en kan bij de eerste Windows-start zelf nog een beveiligingscontrole krijgen. Schakel SmartScreen of antivirus niet uit.
