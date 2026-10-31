@@ -8,7 +8,27 @@ installer de geluiden na de appinstallatie automatisch toe te voegen.
 Dubbele geluiden worden overgeslagen, en een bestaand geluidenarchief
 wordt niet verwijderd. Als automatische import mislukt, staat de ZIP nog in Downloads.
 
-## Windows Setup automatisch bouwen op GitHub
+## Windows Setup en echte éénklikinstallatie automatisch bouwen op GitHub
+
+De nieuwe workflow levert twee artefacten op. De technische
+`DrostSoundboard-RC6-Compact-Setup` is alleen bedoeld om de verpakte app
+afzonderlijk te controleren. Dit is een vrijwel stille Velopack Setup.
+
+De **gebruikersgerichte testinstaller** heet
+`DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze`. Deze bevat één
+`DrostSoundboard-Installeren-RC6-Test.exe`, met de compacte
+RC6 Setup al inbegrepen. Die toont een echt Windows-venster met uitleg,
+een optioneel vinkje voor 141 startergeluiden, voortgang en de knop om
+DrostSoundboard te openen. Dit bestand is circa 73 MiB plus een klein
+installatievenster. Voor alleen de app is geen internet nodig tijdens de
+testinstallatie. Als iemand het soundpack aanvinkt, wordt dit afzonderlijk
+vanaf de bestaande officiële Release gedownload en in de app geïmporteerd.
+
+De losse kleine internetstarter blijft voor latere publieke releases bestaan,
+maar hoort niet bij deze zelfstandige RC6-test. Publiceer de nieuwe versie
+pas nadat het volledige gebruikerspad op Windows is gecontroleerd.
+
+## Technische RC6-bouw op GitHub
 
 Gebruik de workflow **RC6 automatisch compacte Windows Setup bouwen** onder
 GitHub Actions. Deze workflow voert de volledige test- en releasebouw uit
