@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class TestInstallerStarterEnImportVoortgang(unittest.TestCase):
     def test_installer_toont_downloadlocatie_en_toegankelijke_knoppen(self):
         bron = (ROOT / "hulpmiddelen/installerstarter/DrostInstallerStarter.cs").read_text(encoding="utf-8")
-        self.assertIn('ForeColor=Color.FromArgb(241,248,249)', bron)
+        self.assertIn('ForeColor = Color.FromArgb(241, 248, 249)', bron)
         self.assertIn('Soundpack opgeslagen in Downloads:', bron)
         self.assertIn('map.Enabled = true;', bron)
         self.assertIn('SHA256.Create()', bron)
