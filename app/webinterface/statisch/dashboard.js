@@ -4042,7 +4042,11 @@ async function schakelGekozenStem() {
 }
 
 async function speelVoorbeeldstemAf(bron = false) {
-  if (toestand.stemvoorbeeldActief || toestand.stemvoorbeeldBezig || toestand.stemkeuzeBezig) return;
+  if (toestand.stemvoorbeeldActief || toestand.stemvoorbeeldBezig) {
+    element('stem-demo-status').textContent = 'Je eigen stem wordt getest. Stop eerst je eigen stemtest om een voorbeeldstem te beluisteren.';
+    return;
+  }
+  if (toestand.stemkeuzeBezig) return;
   stopVoorbeeldstem();
   const nummer = stemDemoVolgnummer;
   const verzoek = 'demo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
