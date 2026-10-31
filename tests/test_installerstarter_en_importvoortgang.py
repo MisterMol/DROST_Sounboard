@@ -13,6 +13,20 @@ class TestInstallerStarterEnImportVoortgang(unittest.TestCase):
         self.assertIn('map.Enabled=true;', bron)
         self.assertIn('SHA256.Create()', bron)
 
+    def test_een_exe_kan_soundpack_automatisch_toevoegen(self):
+        starter = (ROOT / "hulpmiddelen/installerstarter/DrostInstallerStarter.cs").read_text(encoding="utf-8")
+        helper = (ROOT / "hulpmiddelen/installerstarter/StartersoundpackAutomatisch.cs").read_text(encoding="utf-8")
+        build = (ROOT / "Bouw_Installerstarter.ps1").read_text(encoding="utf-8")
+        self.assertIn("pack.Checked=false;", starter)
+        self.assertIn("StartersoundpackAutomatisch.VoegToe(", starter)
+        self.assertIn("X-Drost-Token", helper)
+        self.assertIn("127.0.0.1:", helper)
+        self.assertIn("/api/versie", helper)
+        self.assertIn("/api/bibliotheek/importeer?dubbelen=overslaan", helper)
+        self.assertIn("IProgress<int>", helper)
+        self.assertIn("TryComputeLength(out long length)", helper)
+        self.assertIn("StartersoundpackAutomatisch.cs", build)
+
     def test_bibliotheek_import_heeft_blijvende_visuele_voortgang(self):
         html = (ROOT / "app/webinterface/statisch/dashboard.html").read_text(encoding="utf-8")
         js = (ROOT / "app/webinterface/statisch/dashboard.js").read_text(encoding="utf-8")
