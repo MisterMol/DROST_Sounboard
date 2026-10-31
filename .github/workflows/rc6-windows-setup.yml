@@ -1,0 +1,58 @@
+name: RC6 automatisch compacte Windows Setup bouwen
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/rc6-windows-setup.yml'
+      - 'hulpmiddelen/rc6_automatische_bouw/**'
+      - 'Bouw_Windows_Release.ps1'
+      - 'app/desktop/**'
+      - 'app/audio/**'
+      - 'app/webinterface/**'
+      - 'tests/**'
+permissions:
+  contents: read
+jobs:
+  windows-setup:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - name: Broncode ophalen
+        uses: actions/checkout@v4
+      - name: Python 3.13 voor build
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: .NET SDK 8 voor Velopack
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Bouwprogramma's op Windows-runner gereedmaken
+        shell: powershell
+        run: |
+          python -m venv .venv
+          dotnet tool install --global vpk --version 1.2.161
+      - name: Oorspronkelijke normale DSP-motor uit officiële RC5 Setup controleren
+        shell: powershell
+        run: .\hulpmiddelen\rc6_automatische_bouw\Haal_Audiomotor_Uit_RC5.ps1
+      - name: RC6 Compact volledig testen, verpakken en automatische EXE-test uitvoeren
+        shell: powershell
+        run: .\Bouw_Windows_Release.ps1 -Compact -GitHubRepository "https://github.com/MisterMol/DROST_Sounboard"
+      - name: Controleer de compacte installer en geef SHA256
+        shell: powershell
+        run: |
+          $exe=Get-ChildItem 'release-velopack' -Recurse -File -Filter 'DrostSoundboard.Desktop-beta-Setup.exe' |
+            Where-Object { $_.FullName -match 'Bouw-6\.1\.0-rc\.6-' }
+          if (@($exe).Count -ne 1) { throw 'Verwacht precies één nieuwe RC6 Setup.' }
+          if ($exe.Length -lt 100KB) { throw 'RC6 Setup is onwaarschijnlijk klein.' }
+          $sha=(Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host ('RC6 Setup grootte: ' + [math]::Round($exe.Length/1MB,1) + ' MiB')
+          Write-Host ('SHA256: '+$sha)
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ('RC6 compacte Setup: '+[math]::Round($exe.Length/1MB,1)+' MiB. SHA256: '+$sha+'. Nog op echte Windows-pc testen.')
+      - name: Eén Windows-installatiebestand aanbieden
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrostSoundboard-RC6-Compact-Setup
+          path: release-velopack/Bouw-6.1.0-rc.6-*/DrostSoundboard.Desktop-beta-Setup.exe
+          compression-level: 0
+          if-no-files-found: error
