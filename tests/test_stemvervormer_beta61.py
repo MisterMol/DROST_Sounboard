@@ -35,6 +35,8 @@ class TestLiveStemvervormer(unittest.TestCase):
         self.assertIs(processor.verwerk(stukje), stukje)
         np.testing.assert_array_equal(self.verwerk_een_seconde('normaal'), self.stem[:, 0])
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_vervorming_is_hoorbaar_en_laat_bron_ongewijzigd(self):
         origineel = self.stem.copy()
         for profiel in ('radio', 'robot', 'diep'):
@@ -49,6 +51,8 @@ class TestLiveStemvervormer(unittest.TestCase):
         self.assertGreater(spectrum[172], 10)
         self.assertGreater(spectrum[268], 10)
 
+    @unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                         'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
     def test_diep_verlaagt_220_hertz_in_de_praktijk(self):
         x = self.verwerk_een_seconde('diep')[24000:]
         spec = np.abs(np.fft.rfft(x * np.hanning(len(x))))
