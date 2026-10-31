@@ -3381,6 +3381,17 @@ function maakAudiopackBoom(){
  * Verstuur grote audiopacks met zichtbare voortgang. De balk meet alleen
  * het verzenden naar de lokale server; daarna gaat het verwerken verder.
  */
+function zetAudiopackVoortgangAan(fase) {
+  const vak=element('audiopack-voortgang');
+  vak.hidden=false;
+  element('audiopack-fase').textContent=fase;
+  element('audiopack-balk').removeAttribute('value');
+  element('dialoog-audiopack').setAttribute('aria-busy','true');
+}
+function zetAudiopackVoortgangUit() {
+  element('audiopack-voortgang').hidden=true;
+  element('dialoog-audiopack').setAttribute('aria-busy','false');
+}
 function verstuurAudiopackMetVoortgang(pad, bestand, voortgang) {
   return new Promise((voltooid, mislukt) => {
     const verzoek = new XMLHttpRequest();
@@ -3395,10 +3406,16 @@ function verstuurAudiopackMetVoortgang(pad, bestand, voortgang) {
         return;
       }
       const percentage = Math.round(100 * gebeurtenis.loaded / gebeurtenis.total);
+      element('audiopack-balk').value=percentage;
+      element('audiopack-fase').textContent='Audiopack versturen: '+percentage+'%';
       voortgang('Audiopack verzenden: ' + percentage + '% (' +
         Math.round(gebeurtenis.loaded / (1024 * 1024)) + ' MiB).');
     };
-    verzoek.upload.onload = () => voortgang('Audiopack ontvangen. Geluiden verwerken, dit kan even duren...');
+    verzoek.upload.onload = () => {
+      element('audiopack-balk').removeAttribute('value');
+      element('audiopack-fase').textContent='Geluiden worden verwerkt';
+      voortgang('Audiopack ontvangen. Geluiden verwerken, dit kan even duren...');
+    };
     verzoek.onerror = () => mislukt(new Error(APP_NIET_BEREIKBAAR));
     verzoek.ontimeout = () => mislukt(new Error(
       'Audiopack duurde te lang. Controleer eerst de bibliotheek voordat je opnieuw importeert.'));
@@ -3428,6 +3445,7 @@ async function bekijkAudiopackVoorImport(bestand){
   element('audiopack-importeer').disabled=true;
   status.textContent='Audiopack wordt voorbereid. Je bibliotheek blijft ongewijzigd.';
   dialoog.showModal();
+  zetAudiopackVoortgangAan('Audiopack controleren');
   try{
     const antwoord=await verstuurAudiopackMetVoortgang(
       '/api/bibliotheek/audiopack-bekijk',bestand,tekst=>{status.textContent=tekst;});
@@ -3439,6 +3457,8 @@ async function bekijkAudiopackVoorImport(bestand){
   }catch(fout){
     dialoog.close();
     throw fout;
+  }finally{
+    zetAudiopackVoortgangUit();
   }
 }
 async function importeerAudiopackSelectie(){
@@ -3447,6 +3467,7 @@ async function importeerAudiopackSelectie(){
   if(!bestand||!indices.length)throw new Error('Selecteer minstens één geluid.');
   const knop=element('audiopack-importeer');knop.disabled=true;
   element('audiopack-status').textContent=`${indices.length} geluiden importeren…`;
+  zetAudiopackVoortgangAan('Geluiden importeren');
   try{
     // Dezelfde ZIP gaat opnieuw lokaal naar de server, nu met gevalideerde indexselectie.
     const dubbelOptie=element('audiopack-ook-dubbelen').checked?'toestaan':'overslaan';
@@ -3458,7 +3479,10 @@ async function importeerAudiopackSelectie(){
     toestand.beheerGeselecteerd.clear();
     await laadBibliotheekOpnieuw();
     toonMelding(antwoord.melding||'Audiopack geïmporteerd.');
-  }finally{knop.disabled=false;}
+  }finally{
+    zetAudiopackVoortgangUit();
+    knop.disabled=false;
+  }
 }
 
 async function openVolledigeBibliotheekExport(){
