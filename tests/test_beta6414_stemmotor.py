@@ -20,6 +20,8 @@ class TestStemcatalogus414(unittest.TestCase):
         x=np.full((480,1),.1,np.float32)
         self.assertIs(Stemvervormer('normaal').verwerk(x),x)
 
+@unittest.skipUnless((Path(__file__).resolve().parents[1] / 'app/audio/native/win-x64/drost_stem.dll').is_file(),
+                     'Echte DSP-motor ontbreekt in CI-checkout; lokaal voor release verplicht')
 @unittest.skipUnless(sys.platform=='win32','De meegebouwde native bibliotheek is uitsluitend Windows x64.')
 class TestWerkelijkeNativeMotor414(unittest.TestCase):
     def test_native_acceptatie_zonder_audiodevice(self):
