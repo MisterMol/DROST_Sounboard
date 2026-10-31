@@ -41,9 +41,11 @@ jobs:
       - name: Controleer de compacte installer en geef SHA256
         shell: powershell
         run: |
-          $exe=Get-ChildItem 'release-velopack' -Recurse -File -Filter 'DrostSoundboard.Desktop-beta-Setup.exe' |
-            Where-Object { $_.FullName -match 'Bouw-6\.1\.0-rc\.6-' }
-          if (@($exe).Count -ne 1) { throw 'Verwacht precies één nieuwe RC6 Setup.' }
+          # De bouw maakt ook een extra deelmap met een kopie van Setup.
+          # Controleer daarom uitsluitend de Setup direct in de eigen Bouw-map.
+          $mappen=@(Get-ChildItem 'release-velopack' -Directory -Filter 'Bouw-6.1.0-rc.6-*')
+          if ($mappen.Count -ne 1) { throw 'Verwacht precies één nieuwe RC6 bouwmap.' }
+          $exe=Get-Item -LiteralPath (Join-Path $mappen[0].FullName 'DrostSoundboard.Desktop-beta-Setup.exe')
           if ($exe.Length -lt 100KB) { throw 'RC6 Setup is onwaarschijnlijk klein.' }
           $sha=(Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           Write-Host ('RC6 Setup grootte: ' + [math]::Round($exe.Length/1MB,1) + ' MiB')
