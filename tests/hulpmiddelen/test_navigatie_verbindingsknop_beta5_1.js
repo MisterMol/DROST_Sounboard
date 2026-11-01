@@ -163,6 +163,7 @@ async function main() {
   aanvragen = [];
 
   // De VB-CABLE-waarschuwing blijft alleen een verbinding blokkeren.
+  serverStatus = { toestand: "verbroken" };
   toestand.vbCable = { status: "ontbreekt" };
   await context.schakelMicrofoonverbinding();
   assert.equal(aanvragen.filter(a => a.methode === "POST").length, 0);
