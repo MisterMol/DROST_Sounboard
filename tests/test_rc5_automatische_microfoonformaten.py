@@ -66,6 +66,52 @@ class WdmDuplexDriver(FormaatDriver):
         )
 
 
+class OngeldigeDuplexCombinatie(FormaatDriver):
+    """Echte Windows-fout -9996: losse endpoints goed, duplex ongeldig."""
+
+    def Stream(self, **kwargs):
+        self.streams.append(kwargs)
+        raise ValueError(
+            'Error opening Stream: Invalid device [PaErrorCode -9996]'
+        )
+
+
+class WeggevallenKabelBijFallback(OngeldigeDuplexCombinatie):
+    """De kabel verdwijnt tussen de eerdere controle en de fallback."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.output_controles = 0
+
+    def check_output_settings(self, **kwargs):
+        self.output_controles += 1
+        if self.output_controles > 1:
+            raise ValueError(
+                'Error querying device: Invalid device [PaErrorCode -9996]'
+            )
+        return super().check_output_settings(**kwargs)
+
+
+class WeggevallenMicrofoonBijFallback(OngeldigeDuplexCombinatie):
+    """De gekozen microfoon verdwijnt tijdens het openen van de duplexstream."""
+
+    def Stream(self, **kwargs):
+        self.streams.append(kwargs)
+        self.geldig.clear()
+        raise ValueError(
+            'Error opening Stream: Invalid device [PaErrorCode -9996]'
+        )
+
+
+class WeggevallenUitvoerBijFallback(OngeldigeDuplexCombinatie):
+    """Het kabelapparaat wordt pas bij het openen echt ongeldig."""
+
+    def OutputStream(self, **kwargs):
+        raise ValueError(
+            'Error opening OutputStream: Invalid device [PaErrorCode -9996]'
+        )
+
+
 class AndereDuplexFout(FormaatDriver):
     """Een onbekende driverfout mag nooit extra audiostreams openen."""
 
@@ -277,6 +323,72 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
                 == 'duplex_fallback_naar_gescheiden_streams'
                 for call in self.logger.warning.call_args_list
             ))
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_echte_razermicrofoon_en_vb_cable_openen_gescheiden_bij_invalid_device(self):
+        driver = OngeldigeDuplexCombinatie(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'verbonden')
+            self.assertEqual(len(driver.streams), 1)
+            self.assertEqual(driver.input.rate, 48000)
+            self.assertEqual(driver.output.rate, 48000)
+            self.assertTrue(mixer.geef_huidige_status().aangepast_microfoonformaat)
+            time.sleep(.06)
+            self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+            meldingen = [
+                c.kwargs.get('extra', {}) for c in self.logger.warning.call_args_list
+            ]
+            self.assertTrue(any(
+                x.get('gebeurtenis') == 'duplex_fallback_naar_gescheiden_streams'
+                and x.get('gegevens', {}).get('oorzaak')
+                    == 'ongeldige_duplex_apparaatcombinatie'
+                for x in meldingen
+            ))
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_ongeldige_kabel_na_duplexfout_stopt_zonder_nieuwe_streams(self):
+        driver = WeggevallenKabelBijFallback(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-025', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertIsNone(driver.input)
+            self.assertIsNone(driver.output)
+            self.assertEqual(driver.output_controles, 2)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_ongeldige_microfoon_na_duplexfout_levert_gerichte_melding(self):
+        driver = WeggevallenMicrofoonBijFallback(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-025', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertIsNone(driver.input)
+            self.assertIsNone(driver.output)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_gescheiden_stream_die_invalid_device_geeft_wordt_niet_herhaald(self):
+        driver = WeggevallenUitvoerBijFallback(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-025', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertEqual(len(driver.streams), 1)
+            self.assertIsNotNone(driver.input)
+            self.assertFalse(driver.input.active)
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
