@@ -157,6 +157,22 @@ class _BegrensdeAudiobuffer:
             self._slot.release()
 
 
+class AudioApparaatOpenFout(RuntimeError):
+    """Houd bij een mislukte losse stream bij welk endpoint Windows weigerde.
+
+    De oorspronkelijke PortAudioError blijft beschikbaar in de chained
+    traceback. Het dashboard kan hierdoor een gerichte melding geven.
+    """
+
+    def __init__(self, kant: str, oorspronkelijke_fout: Exception) -> None:
+        self.kant = kant
+        super().__init__(
+            f"Losse {'microfoon' if kant == 'invoer' else 'VB-CABLE-uitvoer'} "
+            f"kon niet worden geopend: {type(oorspronkelijke_fout).__name__}: "
+            f"{oorspronkelijke_fout}"
+        )
+
+
 class GescheidenMicrofoonEnUitvoer:
     """Gedraagt zich als een PortAudio-stream voor de bestaande mixer.
 
@@ -180,17 +196,33 @@ class GescheidenMicrofoonEnUitvoer:
         self._invoer = None
         self._uitvoer = None
         self._omzetter_factory = omzetter_factory
+        # Windows WASAPI Shared accepteert niet altijd een ander kanaal- of
+        # sampleformaat dan het ingestelde Windows-mixerformaat. Op de
+        # gescheiden herstelroute mag de Windows-mixer veilig converteren.
+        # De bestaande werkende duplexroute verandert hierdoor niet.
+        wasapi = getattr(audiobibliotheek, 'WasapiSettings', None)
+        extra_settings = (
+            {'extra_settings': wasapi(exclusive=False, auto_convert=True)}
+            if callable(wasapi) else {}
+        )
         try:
-            self._invoer = audiobibliotheek.InputStream(
-                samplerate=formaat.samplefrequentie, blocksize=0,
-                device=invoernummer, channels=formaat.aantal_kanalen,
-                dtype='float32', latency='high', callback=self._vang_microfoon_op,
-            )
-            self._uitvoer = audiobibliotheek.OutputStream(
-                samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER, blocksize=0,
-                device=uitvoernummer, channels=2, dtype='float32', latency='high',
-                callback=self._stuur_naar_kabel,
-            )
+            try:
+                self._invoer = audiobibliotheek.InputStream(
+                    samplerate=formaat.samplefrequentie, blocksize=0,
+                    device=invoernummer, channels=formaat.aantal_kanalen,
+                    dtype='float32', latency='high', callback=self._vang_microfoon_op,
+                    **extra_settings,
+                )
+            except Exception as fout:
+                raise AudioApparaatOpenFout('invoer', fout) from fout
+            try:
+                self._uitvoer = audiobibliotheek.OutputStream(
+                    samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER, blocksize=0,
+                    device=uitvoernummer, channels=2, dtype='float32', latency='high',
+                    callback=self._stuur_naar_kabel, **extra_settings,
+                )
+            except Exception as fout:
+                raise AudioApparaatOpenFout('uitvoer', fout) from fout
         except Exception:
             self.close(ignore_errors=True)
             raise
