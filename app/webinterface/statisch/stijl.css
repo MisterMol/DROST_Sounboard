@@ -60,6 +60,13 @@ h1,h2,h3,p { margin: 0; }
 .paneel-uitleg { margin-top: 6px; color: var(--secundair); font-size: 13px; }
 .info-chip,.lengte-tag { border-radius: 100px; padding: 8px 13px; background: #202b34; border: 1px solid #303e49; color: #c6d3dc; font-size: 12px; font-weight: 580; white-space: nowrap; }
 .bediening-boven { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: end; gap: 10px; }
+.microfoon-verbinding-fout {
+  margin: 12px 0 0; padding: 12px 14px;
+  border: 1px solid #a46961; border-radius: 10px;
+  background: #302022; color: #ffd0c9;
+  font-size: 13px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.microfoon-verbinding-fout[hidden] { display: none !important; }
 .keuze-apparaat { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 select,.zoekveld,.invoerveld input[type="text"],.invoerveld input[type="number"] { background: #0e131a; color: var(--tekst); border: 1px solid #34414c; border-radius: 9px; padding: 11px 12px; height: 44px; min-width: 0; width: 100%; transition: border-color .16s ease, background .16s ease; }
 select:focus,.zoekveld:focus,input[type="text"]:focus,input[type="number"]:focus { border-color: #70bdb1; outline: 1px solid #70bdb167; }
