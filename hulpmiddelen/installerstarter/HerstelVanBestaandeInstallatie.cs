@@ -21,7 +21,8 @@ internal static class HerstelVanBestaandeInstallatie {
 
     public static bool IsGeinstalleerd() {
         string pad = Installatiemap();
-        return File.Exists(Path.Combine(pad, "Update.exe")) &&
+        // Ook een onvolledige installatie moet als herstelbaar herkenbaar zijn.
+        return File.Exists(Path.Combine(pad, "Update.exe")) ||
                File.Exists(Path.Combine(pad, "current", "DrostSoundboard.exe"));
     }
 
