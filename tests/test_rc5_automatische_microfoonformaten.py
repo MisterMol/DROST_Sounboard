@@ -430,6 +430,10 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             'Windows',
             gebruikersmelding('LIVE-024: gescheiden audiostreams geweigerd'),
         )
+        self.assertIn(
+            'VB-CABLE',
+            gebruikersmelding('LIVE-025: apparaatcombinatie ongeldig'),
+        )
 
     def test_geen_ondersteund_formaat_is_duidelijke_fout(self):
         driver=FormaatDriver(geldig=(), standaard=16000)
