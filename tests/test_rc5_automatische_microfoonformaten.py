@@ -533,7 +533,7 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             gebruikersmelding('LIVE-024: gescheiden audiostreams geweigerd'),
         )
         self.assertIn(
-            'VB-CABLE',
+            'audioverbinding',
             gebruikersmelding('LIVE-025: apparaatcombinatie ongeldig'),
         )
         self.assertIn(
