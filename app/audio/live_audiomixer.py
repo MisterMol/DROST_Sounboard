@@ -25,7 +25,8 @@ import numpy as np
 
 from app.audio.apparatenbeheer import GevondenAudioapparaat
 from app.audio.automatische_microfoonformaten import (
-    KANDIDAAT_FREQUENTIES, maak_streamadapter, zoek_microfoonformaat,
+    AudioApparaatOpenFout, KANDIDAAT_FREQUENTIES, maak_streamadapter,
+    zoek_microfoonformaat,
 )
 from app.audio.automatisch_audioherstel import (
     MAXIMALE_STARTPOGINGEN,
@@ -190,6 +191,23 @@ def kies_het_juiste_aantal_microfoonkanalen(
         "LIVE-003: microfoon accepteert geen mono- of stereostream op 48 kHz. "
         "Controleer het standaardformaat van de microfoon in mmsys.cpl. "
         f"Driverantwoorden: {'; '.join(fouten_per_kanaalaantal)}"
+    )
+
+
+def uitleg_bij_losse_streamfout(fout: AudioApparaatOpenFout) -> LiveVerbindingFout:
+    """Duid aan welk WASAPI-endpoint het openen van audio blokkeert.
+
+    De PortAudio-fout blijft in de exception-chain en software.jsonl staan.
+    """
+    if fout.kant == 'invoer':
+        return LiveVerbindingFout(
+            'LIVE-026: Windows kon de gekozen fysieke microfoon niet openen. '
+            'Controleer de opname-ingang, microfoonrechten en Windows-geluidsinstellingen.'
+        )
+    return LiveVerbindingFout(
+        'LIVE-027: Windows kon de VB-CABLE-uitgang CABLE Input niet openen. '
+        'Controleer in Windows bij Afspelen of CABLE Input is ingeschakeld '
+        'en ingesteld op stereo 48 kHz.'
     )
 
 
@@ -1061,6 +1079,10 @@ class LiveAudiomixer:
                     zet_huidige_poging=self._zet_huidige_startpoging,
                 )
             except Exception as fout_bij_duplex:
+                # Als er al gescheiden streams werden geopend, weten we
+                # meteen welke van de twee apparaten niet open kon.
+                if isinstance(fout_bij_duplex, AudioApparaatOpenFout):
+                    raise uitleg_bij_losse_streamfout(fout_bij_duplex) from fout_bij_duplex
                 # Windows WASAPI kan afzonderlijk een microfoon en kabel
                 # accepteren, maar hun gecombineerde duplexstream weigeren.
                 # Voor de echte pc-fout -9996 mag een *gecontroleerde* fallback
@@ -1156,6 +1178,8 @@ class LiveAudiomixer:
                         auditlogboek=self.auditlogboek,
                         zet_huidige_poging=self._zet_huidige_startpoging,
                     )
+                except AudioApparaatOpenFout as apparaat_fout:
+                    raise uitleg_bij_losse_streamfout(apparaat_fout) from apparaat_fout
                 except Exception as gescheiden_fout:
                     # Een werkelijk onbereikbaar Windows-apparaat kan zelfs
                     # afzonderlijk niet openen. De originele traceback blijft
