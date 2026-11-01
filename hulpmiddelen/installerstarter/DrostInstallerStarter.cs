@@ -36,7 +36,7 @@ internal sealed class Installer : Form {
         ingesloten = GebundeldeSetup.Zoek();
         if (InstallerUitvoering.VereistGebundeldeRc6 && ingesloten == null)
             throw new InvalidDataException("Deze RC6 testinstaller is beschadigd. Download het bestand opnieuw.");
-        Text = "DrostSoundboard installeren";
+        Text = "DrostSoundboard Classic installeren of herstellen";
         ClientSize = new Size(735, 420);
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = false;
@@ -46,7 +46,7 @@ internal sealed class Installer : Form {
         Font = new Font("Segoe UI", 10);
 
         var kop = new Label {
-            Text = "DrostSoundboard installeren",
+            Text = "DrostSoundboard Classic",
             Bounds = new Rectangle(24, 20, 675, 41),
             Font = new Font("Segoe UI", 20, FontStyle.Bold),
             ForeColor = Color.FromArgb(120, 214, 197)
@@ -54,9 +54,9 @@ internal sealed class Installer : Form {
         hint.SetBounds(24, 73, 685, 52);
         bool bestaandeApp = HerstelVanBestaandeInstallatie.IsGeinstalleerd();
         hint.Text = bestaandeApp
-            ? "DrostSoundboard staat al op deze computer. Herstellen installeert de app opnieuw.\nJe bibliotheek, favorieten en instellingen blijven behouden."
+            ? "DrostSoundboard staat al op deze computer. Herstellen installeert Classic opnieuw.\nJe bibliotheek, favorieten en instellingen blijven behouden."
             : ingesloten != null
-            ? "RC6 Compact is inbegrepen in dit bestand (ongeveer 73 MiB).\nJe hebt geen Python, Git, .NET SDK of andere ontwikkelsoftware nodig."
+            ? "Classic: de oude Beta 4.10-microfoonroute met gewone stemfilters en soundboard.\nZonder Nova, Ruben, Linde of Omroeper. Geen ontwikkelsoftware nodig."
             : "DrostSoundboard wordt automatisch gedownload en geïnstalleerd.\nJe bestaande bibliotheek, favorieten en instellingen blijven bewaard.";
 
         pack.SetBounds(24, 139, 690, 31);
@@ -72,7 +72,7 @@ internal sealed class Installer : Form {
         status.SetBounds(24, 235, 685, 48);
         status.Text = bestaandeApp
             ? "Klaar om DrostSoundboard te herstellen. Persoonlijke geluiden blijven staan."
-            : "Klaar om te installeren. Kies hierboven of je startergeluiden wilt.";
+            : "Classic is klaar om te installeren. Extra startergeluiden zijn optioneel.";
         status.ForeColor = Color.FromArgb(241, 248, 249);
         balk.SetBounds(24, 288, 685, 20);
         balk.Style = ProgressBarStyle.Continuous;
