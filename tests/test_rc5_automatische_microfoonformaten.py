@@ -11,7 +11,7 @@ import numpy as np
 from app.audio.apparatenbeheer import GevondenAudioapparaat
 from app.audio.automatische_microfoonformaten import (
     _BegrensdeAudiobuffer, _geldige_frequentie, zoek_microfoonformaat,
-    GescheidenMicrofoonEnUitvoer,
+    GescheidenMicrofoonEnUitvoer, zoek_veilige_directsound_kabeluitvoer,
 )
 from app.audio.live_audiomixer import LiveAudiomixer
 from app.webinterface.gebruikersmeldingen import gebruikersmelding
@@ -156,6 +156,58 @@ class FoutBijStartenVanMicrofoon(OngeldigeDuplexCombinatie):
             raise ValueError('Error starting InputStream: Invalid device [PaErrorCode -9996]')
         self.input.start = weiger_start
         return self.input
+
+
+class DriverMetDirectSoundKabel(OngeldigeDuplexCombinatie):
+    """De echte -9996 op WASAPI, dezelfde VB-CABLE werkt via DirectSound."""
+
+    def __init__(self, *, weigeren_bij_start=False, meerdere_kabels=False, **kwargs):
+        super().__init__(**kwargs)
+        self.weigeren_bij_start = weigeren_bij_start
+        self.meerdere_kabels = meerdere_kabels
+        self.uitvoerpogingen = []
+        self.apis = [{'name': 'Windows WASAPI'}, {'name': 'Windows DirectSound'}]
+        self.apparaten = [
+            {'name': 'Luidsprekers (Razer USB Sound Card)',
+             'hostapi': 0, 'max_output_channels': 2}
+            for _ in range(33)
+        ]
+        self.apparaten[21] = {
+            'name': 'CABLE Input (VB-Audio Virtual Cable)',
+            'hostapi': 0, 'max_output_channels': 2,
+        }
+        # DirectSound kort apparaatnamen soms af.
+        self.apparaten[30] = {
+            'name': 'CABLE Input (VB-Audio Virtual C',
+            'hostapi': 1, 'max_output_channels': 2,
+        }
+        self.apparaten[31] = {
+            'name': 'CABLE Input (Andere Kabel)',
+            'hostapi': 1, 'max_output_channels': 2,
+        }
+        if meerdere_kabels:
+            self.apparaten[32] = dict(self.apparaten[30])
+
+    def query_devices(self, device=None):
+        return self.apparaten if device is None else super().query_devices(device)
+
+    def query_hostapis(self):
+        return self.apis
+
+    def OutputStream(self, **kwargs):
+        nummer = kwargs['device']
+        self.uitvoerpogingen.append(nummer)
+        if nummer == 21 and not self.weigeren_bij_start:
+            raise ValueError('Error opening OutputStream: Invalid device [PaErrorCode -9996]')
+        if nummer == 21:
+            stream = super().OutputStream(**kwargs)
+            def weiger():
+                raise ValueError('Error starting OutputStream: Invalid device [PaErrorCode -9996]')
+            stream.start = weiger
+            return stream
+        if nummer != 30:
+            raise AssertionError('Soundboard mag nooit naar luidsprekers of een andere kabel.')
+        return super().OutputStream(**kwargs)
 
 
 class AndereDuplexFout(FormaatDriver):
@@ -491,6 +543,46 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             self.assertIn('LIVE-026', mixer.geef_huidige_status().laatst_bekende_fout)
             self.assertFalse(driver.input.active)
             self.assertFalse(driver.output.active)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_directsound_reserve_is_exact_dezelfde_vb_cable(self):
+        for fout_bij_start in (False, True):
+            with self.subTest(fout_bij_start=fout_bij_start):
+                driver = DriverMetDirectSoundKabel(
+                    geldig=(48000,), standaard=48000,
+                    weigeren_bij_start=fout_bij_start,
+                )
+                mixer = LiveAudiomixer(driver, self.logger, self.audit)
+                try:
+                    self.assertEqual(zoek_veilige_directsound_kabeluitvoer(driver), 30)
+                    mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+                    self._wacht(mixer, 'verbonden')
+                    self.assertEqual(driver.uitvoerpogingen, [21, 30])
+                    self.assertEqual(driver.output.rate, 48000)
+                    time.sleep(.07)
+                    self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+                    self.assertTrue(any(
+                        c.kwargs.get('extra', {}).get('gebeurtenis') ==
+                        'vb_cable_directsound_herstel'
+                        for c in self.logger.warning.call_args_list
+                    ))
+                finally:
+                    mixer.verbreek_de_verbinding()
+                    mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_nooit_gokken_bij_twee_directsound_kabels(self):
+        driver = DriverMetDirectSoundKabel(
+            geldig=(48000,), standaard=48000, meerdere_kabels=True,
+        )
+        self.assertIsNone(zoek_veilige_directsound_kabeluitvoer(driver))
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-027', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertEqual(driver.uitvoerpogingen, [21])
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
