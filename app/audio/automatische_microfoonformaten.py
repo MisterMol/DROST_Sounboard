@@ -338,19 +338,55 @@ class GescheidenMicrofoonEnUitvoer:
             raise eerste_fout
 
 
+def zoek_veilige_directsound_kabeluitvoer(audiobibliotheek: Any) -> int | None:
+    """Zoek één echte VB-CABLE-uitgang bij Windows DirectSound.
+
+    Alleen bedoeld als WASAPI CABLE Input zelf niet opent. Er wordt nooit
+    teruggevallen op de systeemstandaard, een headset of een andere kabel.
+    DirectSound kan apparaatnamen afkorten; het stabiele begin blijft herkenbaar.
+    """
+    try:
+        apparaten = audiobibliotheek.query_devices()
+        hostapis = audiobibliotheek.query_hostapis()
+    except (AttributeError, TypeError, ValueError, OSError):
+        return None
+    kandidaten: list[int] = []
+    for nummer, apparaat in enumerate(apparaten):
+        try:
+            naam = apparaat['name'].strip().casefold()
+            hostnummer = apparaat['hostapi']
+            if (naam.startswith('cable input (vb-audio virtual')
+                    and apparaat['max_output_channels'] >= 2
+                    and isinstance(hostnummer, int)
+                    and 0 <= hostnummer < len(hostapis)
+                    and hostapis[hostnummer]['name'].casefold() == 'windows directsound'):
+                kandidaten.append(nummer)
+        except (TypeError, ValueError, AttributeError, KeyError, IndexError):
+            continue
+    # Meerdere mogelijke VB-CABLE-uitgangen zijn ambigu. Nooit gokken.
+    return kandidaten[0] if len(kandidaten) == 1 else None
+
+
 class _AdapterVoorGescheidenStreams:
     """Geef de bestaande begrensde Windows-startretry dezelfde Stream-API."""
 
-    def __init__(self, audiobibliotheek: Any, formaat: MicrofoonFormaat) -> None:
+    def __init__(self, audiobibliotheek: Any, formaat: MicrofoonFormaat,
+                 uitvoer_overschrijven: int | None = None) -> None:
         self.audiobibliotheek = audiobibliotheek
         self.formaat = formaat
+        self.uitvoer_overschrijven = uitvoer_overschrijven
 
     def Stream(self, **kwargs):
         return GescheidenMicrofoonEnUitvoer(
-            self.audiobibliotheek, kwargs['device'][0], kwargs['device'][1],
+            self.audiobibliotheek, kwargs['device'][0],
+            (self.uitvoer_overschrijven if self.uitvoer_overschrijven is not None
+             else kwargs['device'][1]),
             self.formaat, kwargs['callback'],
         )
 
 
-def maak_streamadapter(audiobibliotheek: Any, formaat: MicrofoonFormaat):
-    return _AdapterVoorGescheidenStreams(audiobibliotheek, formaat)
+def maak_streamadapter(audiobibliotheek: Any, formaat: MicrofoonFormaat,
+                       *, uitvoer_overschrijven: int | None = None):
+    return _AdapterVoorGescheidenStreams(
+        audiobibliotheek, formaat, uitvoer_overschrijven
+    )
