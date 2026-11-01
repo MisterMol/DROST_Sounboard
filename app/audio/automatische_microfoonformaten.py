@@ -196,6 +196,7 @@ class GescheidenMicrofoonEnUitvoer:
         self._invoer = None
         self._uitvoer = None
         self._omzetter_factory = omzetter_factory
+        self._uitvoer_api = 'Windows WASAPI'
         # Windows WASAPI Shared accepteert niet altijd een ander kanaal- of
         # sampleformaat dan het ingestelde Windows-mixerformaat. Op de
         # gescheiden herstelroute mag de Windows-mixer veilig converteren.
@@ -216,16 +217,47 @@ class GescheidenMicrofoonEnUitvoer:
             except Exception as fout:
                 raise AudioApparaatOpenFout('invoer', fout) from fout
             try:
-                self._uitvoer = audiobibliotheek.OutputStream(
-                    samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER, blocksize=0,
-                    device=uitvoernummer, channels=2, dtype='float32', latency='high',
-                    callback=self._stuur_naar_kabel, **extra_settings,
-                )
+                self._uitvoer = self._open_uitvoer(uitvoernummer, extra_settings)
             except Exception as fout:
-                raise AudioApparaatOpenFout('uitvoer', fout) from fout
+                # Een specifieke WASAPI-uitvoerfout mag één reservepoging
+                # activeren op exact dezelfde VB-CABLE via DirectSound.
+                if not self._probeer_directsound_kabeluitvoer(fout):
+                    raise AudioApparaatOpenFout('uitvoer', fout) from fout
         except Exception:
             self.close(ignore_errors=True)
             raise
+
+    def _open_uitvoer(self, nummer: int, extra_settings: dict | None = None):
+        """Open 48 kHz stereo naar een vooraf gevalideerd kabelapparaat."""
+        return self._bibliotheek.OutputStream(
+            samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER, blocksize=0,
+            device=nummer, channels=2, dtype='float32', latency='high',
+            callback=self._stuur_naar_kabel, **(extra_settings or {}),
+        )
+
+    def _probeer_directsound_kabeluitvoer(self, eerste_fout: Exception) -> bool:
+        """Probeer nooit de systeemuitvoer: uitsluitend de unieke VB-CABLE.
+
+        DirectSound is een gerichte reserve voor de bekende -9996 fout.
+        Andere driverfouten en ontbrekende of meerdere kabels stoppen.
+        """
+        omschrijving = str(eerste_fout).casefold()
+        if not ('paerrorcode -9996' in omschrijving and
+                'invalid device' in omschrijving):
+            return False
+        reservetoestel = zoek_veilige_directsound_kabeluitvoer(self._bibliotheek)
+        if reservetoestel is None:
+            return False
+        try:
+            self._uitvoer = self._open_uitvoer(reservetoestel)
+        except Exception as fout:
+            raise AudioApparaatOpenFout('uitvoer', fout) from fout
+        self._uitvoer_api = 'Windows DirectSound'
+        return True
+
+    @property
+    def uitvoer_api(self) -> str:
+        return self._uitvoer_api
 
     @property
     def active(self) -> bool:
@@ -301,7 +333,27 @@ class GescheidenMicrofoonEnUitvoer:
         try:
             self._uitvoer.start()
         except Exception as fout:
-            raise AudioApparaatOpenFout('uitvoer', fout) from fout
+            if self._uitvoer_api != 'Windows WASAPI':
+                raise AudioApparaatOpenFout('uitvoer', fout) from fout
+            # Ook als pas .start() wordt geweigerd moet de oude stream
+            # eerst volledig worden vrijgegeven.
+            omschrijving = str(fout).casefold()
+            if not ('paerrorcode -9996' in omschrijving and
+                    'invalid device' in omschrijving):
+                raise AudioApparaatOpenFout('uitvoer', fout) from fout
+            reserve = zoek_veilige_directsound_kabeluitvoer(self._bibliotheek)
+            if reserve is None:
+                raise AudioApparaatOpenFout('uitvoer', fout) from fout
+            try:
+                self._uitvoer.close(ignore_errors=False)
+            except Exception as sluitfout:
+                raise AudioApparaatOpenFout('uitvoer', sluitfout) from sluitfout
+            try:
+                self._uitvoer = self._open_uitvoer(reserve)
+                self._uitvoer_api = 'Windows DirectSound'
+                self._uitvoer.start()
+            except Exception as reservefout:
+                raise AudioApparaatOpenFout('uitvoer', reservefout) from reservefout
 
     def stop(self, ignore_errors: bool = False) -> None:
         self._stop.set()
