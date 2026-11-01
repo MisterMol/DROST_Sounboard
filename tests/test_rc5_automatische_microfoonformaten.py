@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 
@@ -54,6 +54,24 @@ class FormaatDriver:
     def OutputStream(self, **kwargs):
         self.output = _FakeOutput(kwargs['callback'], kwargs['samplerate'])
         return self.output
+
+
+class WdmDuplexDriver(FormaatDriver):
+    """48 kHz lukt in de drivercontrole, maar duplex weigert definitief."""
+
+    def Stream(self, **kwargs):
+        self.streams.append(kwargs)
+        raise RuntimeError(
+            "WdmSyncIoctl: DeviceIoControl GLE = 0x00000006 [PaErrorCode -9999]"
+        )
+
+
+class AndereDuplexFout(FormaatDriver):
+    """Een onbekende driverfout mag nooit extra audiostreams openen."""
+
+    def Stream(self, **kwargs):
+        self.streams.append(kwargs)
+        raise RuntimeError("Niet-herkenbare fout tijdens openen van duplex")
 
 
 class _FakeDuplex:
@@ -231,6 +249,48 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             self.assertTrue(mixer.geef_huidige_status().aangepast_microfoonformaat)
             time.sleep(.05)
             self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_na_uitgeputte_wdm_duplex_fout_werken_gescheiden_streams(self):
+        driver = WdmDuplexDriver(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            # De normale Windows-start probeert dezelfde kapotte duplex
+            # maximaal zes keer. Voorkom echte wachttijd in de test.
+            with patch(
+                "app.audio.automatisch_audioherstel.PAUZES_VOOR_HERSTEL_IN_SECONDEN",
+                (0, 0, 0, 0, 0),
+            ):
+                mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+                self._wacht(mixer, 'verbonden')
+            self.assertEqual(len(driver.streams), 6)
+            self.assertIsNotNone(driver.input)
+            self.assertIsNotNone(driver.output)
+            self.assertEqual(driver.input.rate, 48000)
+            self.assertEqual(driver.output.rate, 48000)
+            time.sleep(.05)
+            self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+            self.assertTrue(any(
+                call.kwargs.get('extra', {}).get('gebeurtenis')
+                == 'duplex_fallback_naar_gescheiden_streams'
+                for call in self.logger.warning.call_args_list
+            ))
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_onbekende_duplex_fout_opent_geen_extra_microfoonstream(self):
+        driver = AndereDuplexFout(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertEqual(len(driver.streams), 1)
+            self.assertIsNone(driver.input)
+            self.assertIsNone(driver.output)
+            self.assertIn('Niet-herkenbare fout', mixer.geef_huidige_status().laatst_bekende_fout)
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
