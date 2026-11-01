@@ -309,6 +309,16 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
 
+    def test_meldingen_voor_driver_en_vb_cable_zijn_bruikbaar(self):
+        self.assertIn(
+            'VB-CABLE',
+            gebruikersmelding('KABEL-002: virtuele kabel ontbreekt'),
+        )
+        self.assertIn(
+            'Windows',
+            gebruikersmelding('LIVE-024: gescheiden audiostreams geweigerd'),
+        )
+
     def test_geen_ondersteund_formaat_is_duidelijke_fout(self):
         driver=FormaatDriver(geldig=(), standaard=16000)
         mixer=LiveAudiomixer(driver, self.logger, self.audit)
