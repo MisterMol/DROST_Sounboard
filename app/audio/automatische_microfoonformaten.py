@@ -217,12 +217,31 @@ class GescheidenMicrofoonEnUitvoer:
             except Exception as fout:
                 raise AudioApparaatOpenFout('invoer', fout) from fout
             try:
-                self._uitvoer = self._open_uitvoer(uitvoernummer, extra_settings)
-            except Exception as fout:
-                # Een specifieke WASAPI-uitvoerfout mag één reservepoging
-                # activeren op exact dezelfde VB-CABLE via DirectSound.
-                if not self._probeer_directsound_kabeluitvoer(fout):
-                    raise AudioApparaatOpenFout('uitvoer', fout) from fout
+                # Eerst exact de oorspronkelijke RC5-uitvoerinstellingen.
+                # Dit werkte op bestaande pc's vóór de nieuwe herstelcode.
+                self._uitvoer = self._open_uitvoer(uitvoernummer)
+            except Exception as eerste_fout:
+                # Pas als de normale WASAPI-route weigert, probeert de
+                # nieuwe Windows-formaatconverter de oorspronkelijke kabel.
+                laatste_fout = eerste_fout
+                omschrijving = str(eerste_fout).casefold()
+                formaatfout = ('invalid device' in omschrijving and
+                               'paerrorcode -9996' in omschrijving) or (
+                               'invalid sample rate' in omschrijving or
+                               'paerrorcode -9997' in omschrijving)
+                if formaatfout and extra_settings:
+                    try:
+                        self._uitvoer = self._open_uitvoer(
+                            uitvoernummer, extra_settings
+                        )
+                    except Exception as conversiefout:
+                        laatste_fout = conversiefout
+                if self._uitvoer is None:
+                    # Als WASAPI ook na herstel niet opent, mag uitsluitend
+                    # de herkenbare -9996 op dezelfde VB-CABLE via één
+                    # unieke DirectSound-uitgang worden geprobeerd.
+                    if not self._probeer_directsound_kabeluitvoer(eerste_fout):
+                        raise AudioApparaatOpenFout('uitvoer', laatste_fout) from laatste_fout
         except Exception:
             self.close(ignore_errors=True)
             raise
