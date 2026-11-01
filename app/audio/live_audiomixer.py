@@ -1061,21 +1061,31 @@ class LiveAudiomixer:
                     zet_huidige_poging=self._zet_huidige_startpoging,
                 )
             except Exception as fout_bij_duplex:
-                # Sommige WASAPI-drivers weigeren de gecombineerde duplexstream,
-                # terwijl twee losse audiostreams wel kunnen werken.
-                # Probeer dit ALLEEN bij een herkenbaar formaatprobleem of als
-                # de specifieke WdmSyncIoctl-herstelpogingen zijn uitgeput.
-                # Programmeerfouten en een niet veilig gesloten audiohandle
-                # mogen geen nieuwe streams starten.
+                # Windows WASAPI kan afzonderlijk een microfoon en kabel
+                # accepteren, maar hun gecombineerde duplexstream weigeren.
+                # Voor de echte pc-fout -9996 mag een *gecontroleerde* fallback
+                # daarom worden geprobeerd. Een werkelijk verdwenen apparaat
+                # moet echter juist een begrijpelijke fout opleveren.
+                # Andere driver-/programmeerfouten mogen dit nooit activeren.
                 rate_fout = str(fout_bij_duplex).casefold()
                 ongeldige_frequentie = ('invalid sample rate' in rate_fout or
                                         'paerrorcode -9997' in rate_fout)
+                ongeldige_duplex_combinatie = (
+                    'invalid device' in rate_fout and 'paerrorcode -9996' in rate_fout
+                )
                 bekende_wdm_fout = is_het_bekende_tijdelijke_windows_driverprobleem(
                     fout_bij_duplex
                 )
-                if not (ongeldige_frequentie or bekende_wdm_fout):
+                if not (ongeldige_frequentie or bekende_wdm_fout
+                        or ongeldige_duplex_combinatie):
                     raise
                 if gescheiden_formaat is not None:
+                    if ongeldige_duplex_combinatie:
+                        raise LiveVerbindingFout(
+                            'LIVE-025: een van de afzonderlijke audioapparaten is '
+                            'niet meer geldig. Vernieuw de apparatenlijst, '
+                            'controleer VB-CABLE en verbind opnieuw.'
+                        ) from fout_bij_duplex
                     if bekende_wdm_fout:
                         raise LiveVerbindingFout(
                             'LIVE-024: Windows kon ook de afzonderlijke microfoon- '
@@ -1087,11 +1097,31 @@ class LiveAudiomixer:
                         'maar de headset weigerde de echte audiostream. Controleer '
                         'in Windows het opnameformaat en probeer een andere microfooningang.'
                     ) from fout_bij_duplex
+                if ongeldige_duplex_combinatie:
+                    # De eerdere check_output_settings() was vóór de
+                    # mislukte duplexopen. Controleer de kabel nogmaals, zodat
+                    # een losgekoppelde VB-CABLE niet als geslaagde fallback geldt.
+                    try:
+                        self.audiobibliotheek.check_output_settings(
+                            device=kabel.huidig_apparaatnummer,
+                            channels=2, dtype="float32",
+                            samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER,
+                        )
+                    except Exception as kabel_fout:
+                        raise LiveVerbindingFout(
+                            'LIVE-025: de gekozen VB-CABLE-uitgang is niet '
+                            'meer beschikbaar. Vernieuw de apparatenlijst en '
+                            'controleer de VB-CABLE-driver in Windows.'
+                        ) from kabel_fout
+                oorzaak_gescheiden = (
+                    'ongeldige_duplex_apparaatcombinatie' if ongeldige_duplex_combinatie
+                    else 'wdmsyncioctl' if bekende_wdm_fout else 'samplefrequentie'
+                )
                 self.softwarelogboek.warning(
                     'WASAPI-duplex kon niet starten; twee afzonderlijke streams proberen',
                     extra={'gebeurtenis': 'duplex_fallback_naar_gescheiden_streams',
                            'gegevens': {
-                               'oorzaak': 'wdmsyncioctl' if bekende_wdm_fout else 'samplefrequentie',
+                               'oorzaak': oorzaak_gescheiden,
                                'microfoon': microfoon.naam,
                                'kabel': kabel.naam,
                            }},
@@ -1101,6 +1131,12 @@ class LiveAudiomixer:
                     microfoon.aantal_invoerkanalen,
                 )
                 if gescheiden_formaat is None:
+                    if ongeldige_duplex_combinatie:
+                        raise LiveVerbindingFout(
+                            'LIVE-025: de gekozen microfoon is niet meer '
+                            'beschikbaar voor Windows WASAPI. Vernieuw de '
+                            'apparatenlijst en controleer de microfoon in Windows.'
+                        ) from fout_bij_duplex
                     raise LiveVerbindingFout(
                         'LIVE-003: ook na het automatisch onderzoeken van andere '
                         'opnameformaten kon deze microfoon niet worden geopend. '
@@ -1111,14 +1147,28 @@ class LiveAudiomixer:
                 self._microfoon_formaten_geprobeerd = gescheiden_formaat.geteste_samplefrequenties
                 self._microfoon_formaten_geschikt = gescheiden_formaat.ondersteunde_samplefrequenties
                 self._aangepast_microfoonformaat = True
-                audiostroom, aantal_startpogingen = open_en_start_de_audiostream_met_herstel(
-                    audiobibliotheek=maak_streamadapter(self.audiobibliotheek, gescheiden_formaat),
-                    instellingen_van_stream=instellingen_van_stream,
-                    stoppen_gevraagd=self._stop_de_verbinding,
-                    softwarelogboek=self.softwarelogboek,
-                    auditlogboek=self.auditlogboek,
-                    zet_huidige_poging=self._zet_huidige_startpoging,
-                )
+                try:
+                    audiostroom, aantal_startpogingen = open_en_start_de_audiostream_met_herstel(
+                        audiobibliotheek=maak_streamadapter(self.audiobibliotheek, gescheiden_formaat),
+                        instellingen_van_stream=instellingen_van_stream,
+                        stoppen_gevraagd=self._stop_de_verbinding,
+                        softwarelogboek=self.softwarelogboek,
+                        auditlogboek=self.auditlogboek,
+                        zet_huidige_poging=self._zet_huidige_startpoging,
+                    )
+                except Exception as gescheiden_fout:
+                    # Een werkelijk onbereikbaar Windows-apparaat kan zelfs
+                    # afzonderlijk niet openen. De originele traceback blijft
+                    # in software.jsonl bewaard voor gerichte diagnose.
+                    fouttekst = str(gescheiden_fout).casefold()
+                    if ('paerrorcode -9996' in fouttekst and
+                            'invalid device' in fouttekst):
+                        raise LiveVerbindingFout(
+                            'LIVE-025: Windows kan de fysieke microfoon of '
+                            'VB-CABLE ook afzonderlijk niet openen. Vernieuw '
+                            'de apparatenlijst en controleer de aansluitingen.'
+                        ) from gescheiden_fout
+                    raise
             if audiostroom is None:
                 # Verbreken tijdens een herstelpauze is een normale actie.
                 # We mogen dat niet als een werkende audioverbinding melden.
