@@ -29,6 +29,7 @@ from app.audio.automatische_microfoonformaten import (
 )
 from app.audio.automatisch_audioherstel import (
     MAXIMALE_STARTPOGINGEN,
+    is_het_bekende_tijdelijke_windows_driverprobleem,
     open_en_start_de_audiostream_met_herstel,
 )
 from app.audio.windows_com_context import houd_com_beschikbaar_tijdens_audioverbinding
@@ -1060,21 +1061,41 @@ class LiveAudiomixer:
                     zet_huidige_poging=self._zet_huidige_startpoging,
                 )
             except Exception as fout_bij_duplex:
-                # Sommige WASAPI-drivers accepteren 48 kHz in de voorafgaande
-                # controle, maar weigeren pas de gecombineerde input/output-
-                # stream. Probeer dan alsnog twee onafhankelijke streams.
-                # Alleen de fout over samplefrequentie activeert dit herstel.
+                # Sommige WASAPI-drivers weigeren de gecombineerde duplexstream,
+                # terwijl twee losse audiostreams wel kunnen werken.
+                # Probeer dit ALLEEN bij een herkenbaar formaatprobleem of als
+                # de specifieke WdmSyncIoctl-herstelpogingen zijn uitgeput.
+                # Programmeerfouten en een niet veilig gesloten audiohandle
+                # mogen geen nieuwe streams starten.
                 rate_fout = str(fout_bij_duplex).casefold()
                 ongeldige_frequentie = ('invalid sample rate' in rate_fout or
                                         'paerrorcode -9997' in rate_fout)
-                if not ongeldige_frequentie:
+                bekende_wdm_fout = is_het_bekende_tijdelijke_windows_driverprobleem(
+                    fout_bij_duplex
+                )
+                if not (ongeldige_frequentie or bekende_wdm_fout):
                     raise
                 if gescheiden_formaat is not None:
+                    if bekende_wdm_fout:
+                        raise LiveVerbindingFout(
+                            'LIVE-024: Windows kon ook de afzonderlijke microfoon- '
+                            'en kabelstreams niet openen. Sluit andere audioprogramma’s '
+                            'en controleer de Windows-audiodrivers.'
+                        ) from fout_bij_duplex
                     raise LiveVerbindingFout(
                         'LIVE-003: Windows accepteerde het opnameformaat bij de controle, '
                         'maar de headset weigerde de echte audiostream. Controleer '
                         'in Windows het opnameformaat en probeer een andere microfooningang.'
                     ) from fout_bij_duplex
+                self.softwarelogboek.warning(
+                    'WASAPI-duplex kon niet starten; twee afzonderlijke streams proberen',
+                    extra={'gebeurtenis': 'duplex_fallback_naar_gescheiden_streams',
+                           'gegevens': {
+                               'oorzaak': 'wdmsyncioctl' if bekende_wdm_fout else 'samplefrequentie',
+                               'microfoon': microfoon.naam,
+                               'kabel': kabel.naam,
+                           }},
+                )
                 gescheiden_formaat = zoek_microfoonformaat(
                     self.audiobibliotheek, microfoon.huidig_apparaatnummer,
                     microfoon.aantal_invoerkanalen,
