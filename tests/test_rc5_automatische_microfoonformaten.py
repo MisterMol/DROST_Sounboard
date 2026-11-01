@@ -172,93 +172,98 @@ class TestRingbuffer(unittest.TestCase):
 
 
 class TestEchteMixerMetNepdriver(unittest.TestCase):
+    """Classic: bewaak de oude Beta 4.10 duplexroute, geen RC6-fallback."""
+
     def setUp(self):
         self.logger = MagicMock(spec=logging.Logger)
         self.audit = MagicMock(spec=logging.Logger)
-        self.microfoon = GevondenAudioapparaat(26, 'Hoofdtelefoon (HyperX Cloud Jet)', 'Windows WASAPI', 1, 0)
-        self.kabel = GevondenAudioapparaat(21, 'CABLE Input (VB-Audio Virtual Cable)', 'Windows WASAPI', 0, 2)
+        self.microfoon = GevondenAudioapparaat(
+            26, 'Hoofdtelefoon (HyperX Cloud Jet)', 'Windows WASAPI', 1, 0,
+        )
+        self.kabel = GevondenAudioapparaat(
+            21, 'CABLE Input (VB-Audio Virtual Cable)', 'Windows WASAPI', 0, 2,
+        )
 
     def _wacht(self, mixer, status, timeout=1.5):
-        eind=time.monotonic()+timeout
-        while time.monotonic()<eind:
+        einde = time.monotonic() + timeout
+        while time.monotonic() < einde:
             if mixer.geef_huidige_status().toestand == status:
                 return
             time.sleep(.01)
         self.fail(f'Verwacht {status}, kreeg {mixer.geef_huidige_status()}')
 
-    def test_bluetooth_16k_wordt_naar_48k_gemengd(self):
-        driver=FormaatDriver(geldig=(16000,), standaard=16000)
-        mixer=LiveAudiomixer(driver, self.logger, self.audit)
+    def test_bestaande_48k_duplexblijft_onaangeroerd(self):
+        driver = FormaatDriver(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
         try:
             mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
             self._wacht(mixer, 'verbonden')
-            self.assertFalse(driver.streams, '48k-duplex mag niet gestart worden')
-            self.assertEqual(driver.input.rate,16000)
-            self.assertEqual(driver.output.rate,48000)
-            self.assertTrue(mixer.geef_huidige_status().aangepast_microfoonformaat)
-            self.assertEqual(mixer.geef_huidige_status().microfoon_samplefrequentie, 16000)
-            time.sleep(.1)
-            self.assertTrue(any(np.max(b) > .1 for b in driver.output.received),
-                            'echte microfoonstem moet hoorbaar zijn via de virtuele uitvoer')
-            self.assertEqual(mixer.geef_huidige_status().toestand,'verbonden')
-        finally:
-            mixer.verbreek_de_verbinding()
-            mixer.wacht_tot_verbinding_echt_weg_is()
-            self.assertFalse(driver.input.active)
-            self.assertFalse(driver.output.active)
-
-    def test_48k_behoudt_bestaande_duplexroute(self):
-        driver=FormaatDriver(geldig=(48000,), standaard=48000)
-        mixer=LiveAudiomixer(driver, self.logger, self.audit)
-        try:
-            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
-            self._wacht(mixer, 'verbonden')
-            self.assertEqual(len(driver.streams),1)
+            self.assertEqual(len(driver.streams), 1)
+            self.assertEqual(driver.streams[0]['device'], (26, 21))
+            self.assertEqual(driver.streams[0]['samplerate'], 48000)
+            self.assertEqual(driver.streams[0]['latency'], 'high')
             self.assertFalse(mixer.geef_huidige_status().aangepast_microfoonformaat)
+            self.assertIsNone(driver.input)
+            self.assertIsNone(driver.output)
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
 
-    def test_duplex_weigert_48k_na_geslaagde_preflight(self):
+    def test_classic_verbergt_geen_geweigerde_duplexdriver_met_tweede_stream(self):
         driver = FormaatDriver(geldig=(48000,), standaard=48000,
                               duplex_weigert=True)
         mixer = LiveAudiomixer(driver, self.logger, self.audit)
         try:
             mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
-            self._wacht(mixer, 'verbonden')
-            self.assertEqual(driver.input.rate, 48000)
-            self.assertEqual(driver.output.rate, 48000)
-            self.assertTrue(mixer.geef_huidige_status().aangepast_microfoonformaat)
-            time.sleep(.05)
-            self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+            self._wacht(mixer, 'fout')
+            self.assertEqual(len(driver.streams), 1)
+            self.assertIsNone(driver.input)
+            self.assertIsNone(driver.output)
+            self.assertIn('Invalid sample rate', mixer.geef_huidige_status().laatst_bekende_fout)
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
 
-    def test_usb_44100_werkt_ook_via_eigen_streams(self):
-        driver=FormaatDriver(geldig=(44100,), standaard=44100)
-        mixer=LiveAudiomixer(driver, self.logger, self.audit)
+    def test_classic_16k_microfoon_geeft_oude_directe_fout(self):
+        driver = FormaatDriver(geldig=(16000,), standaard=16000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
         try:
             mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
-            self._wacht(mixer, 'verbonden')
-            self.assertEqual(driver.input.rate, 44100)
-            self.assertEqual(driver.output.rate, 48000)
-            time.sleep(.09)
-            self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+            self._wacht(mixer, 'fout')
+            self.assertFalse(driver.streams)
+            self.assertIsNone(driver.input)
+            self.assertIsNone(driver.output)
+            self.assertIn('LIVE-003', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertIn('microfoon', gebruikersmelding(mixer.geef_huidige_status().laatst_bekende_fout))
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
 
-    def test_geen_ondersteund_formaat_is_duidelijke_fout(self):
-        driver=FormaatDriver(geldig=(), standaard=16000)
-        mixer=LiveAudiomixer(driver, self.logger, self.audit)
-        mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
-        self._wacht(mixer, 'fout')
-        status = mixer.geef_huidige_status()
-        self.assertTrue(status.microfoon_formaat_fout)
-        self.assertIn('LIVE-003',status.laatst_bekende_fout)
-        self.assertEqual(status.standaard_microfoonfrequentie,16000)
-        self.assertIn('microfoon',gebruikersmelding(status.laatst_bekende_fout))
+    def test_classic_44100_microfoon_geeft_oude_directe_fout(self):
+        driver = FormaatDriver(geldig=(44100,), standaard=44100)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertFalse(driver.streams)
+            self.assertIn('LIVE-003', mixer.geef_huidige_status().laatst_bekende_fout)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_classic_geen_ondersteund_formaat_is_directe_fout(self):
+        driver = FormaatDriver(geldig=(), standaard=16000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            status = mixer.geef_huidige_status()
+            self.assertTrue(status.microfoon_formaat_fout)
+            self.assertIn('LIVE-003', status.laatst_bekende_fout)
+            self.assertEqual(status.toestand, 'fout')
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
 
 
 if __name__ == '__main__':

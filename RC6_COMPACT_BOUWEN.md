@@ -45,6 +45,28 @@ De gepubliceerde RC5 blijft ongewijzigd. De kleine online installerstarter
 uit de aparte workflow wordt pas voor RC6 gebruikt nadat de juiste
 nieuwe release gepubliceerd is.
 
+## Automatisch opnieuw installeren of herstellen
+
+De gebruikers-EXE detecteert een bestaande of gedeeltelijke Windows
+Velopack-installatie en toont dan **Herstellen**. Hij sluit de bestaande
+app waar mogelijk via de beveiligde lokale webserver netjes af en voert
+de ingebouwde Setup opnieuw uit in silent mode. De Velopack Setup kan
+ook exact dezelfde versie opnieuw installeren. Er is geen aparte
+handmatige uninstall nodig.
+
+Dit vervangt alleen de programmabestanden onder
+`%LOCALAPPDATA%\DrostSoundboard.Desktop`. De bibliotheek en instellingen
+onder `%LOCALAPPDATA%\DrostSoundboard` blijven intact. Als de veilige
+afsluiting mislukt, wordt geen reparatie geforceerd. Het optionele
+soundpack is ook tijdens herstellen beschikbaar.
+
+De Windows Actions-workflow test nu tevens een eerste installatie en
+een nieuwe installatie van dezelfde RC6 Setup in een tijdelijke map.
+Een afzonderlijke controlemenu controleert dat een gebruikersbestand
+na die tweede installatie nog bestaat. De app met draaiende microfoon
+en VB-CABLE moet ook na een geslaagde workflow op echte hardware worden
+getest.
+
 ## Testen voordat je deze versie uitgeeft
 
 Test op een Windows-computer zonder ontwikkelomgeving: het installatievenster,

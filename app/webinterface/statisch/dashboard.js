@@ -11,7 +11,7 @@ const toestand = {
   natuurlijkeStem: null, natuurlijkeStemBezig: false, stembeheerBezig: false, stemkeuzeBezig: false, stemkeuzeGeneratie: 0, stemkeuzeOpdracht: null,
   geluiden: [], favorieten: Array(15).fill(null), status: null,
   gekozenGeluid: null, gekozenPlek: null, bezetteStatusaanvraag: false,
-  bezigMetImport: false, laatsteAudiofout: null, vbCable: null, normalisatiestand: "uit", effectvolumePercentage: 75, limiterAan: true, laatsteLimiterFouten: 0, verbindingInBehandeling: false,
+  bezigMetImport: false, laatsteAudiofout: null, laatsteVerbindingsfout: null, vbCable: null, normalisatiestand: "uit", effectvolumePercentage: 75, limiterAan: true, laatsteLimiterFouten: 0, verbindingInBehandeling: false,
   preview: null, previewHerhalen: false, live: null, verwachtGeluid: null, gewensteSpelmodus: null, previewGereedVoorExtern: false, afspeelVolgnummer: 0, stemprofiel: "normaal", stemactief: false, stemvoorbeeldActief: false, stemvoorbeeldBezig: false, stemprofielen: [], stemintensiteiten: {}, stemparameters: {}, stemparametersCatalogus: {}, voorbeeldspreker: "bob",
   laatstGekozenMonitor: null, microfoonHandmatigGekozen: false, automatischeVerbindingGeprobeerd: false, automatischEenMicrofoon: null, eigenStemMonitorAan: false, eigenStemMonitorVolume: 25,
   groepen: [], actieveGroep: "alle",
@@ -457,6 +457,15 @@ function toonGekozenPagina() {
 function koppelPaginanavigatie() {
   window.addEventListener("hashchange", toonGekozenPagina);
   toonGekozenPagina();
+}
+
+// Bewaar de echte verbindingsfout vlak onder de knop. Een tijdelijke toast
+// mag een microfoonfout niet laten verdwijnen voordat de gebruiker die leest.
+function toonMicrofoonVerbindingsfout(tekst = "") {
+  const melding = element("microfoon-verbinding-fout");
+  if (!melding) return;
+  melding.hidden = !tekst;
+  melding.textContent = tekst ? "Microfoonverbinding mislukt: " + String(tekst) : "";
 }
 
 // Eén verbindingsknop, waarvan de actie en de tekst de werkelijke audiostatus volgen.
@@ -2030,6 +2039,17 @@ async function vernieuwStatus() {
     }
     const verbonden = status.toestand === "verbonden";
     const bezig = ["wordt_verbonden", "wordt_verbroken"].includes(status.toestand);
+    if (status.toestand === "fout") {
+      const fouttekst = status.fout || "Windows heeft de microfoonverbinding geweigerd. Controleer de gekozen microfoon en VB-CABLE.";
+      toonMicrofoonVerbindingsfout(fouttekst);
+      if (fouttekst !== toestand.laatsteVerbindingsfout) {
+        toestand.laatsteVerbindingsfout = fouttekst;
+        toonMelding("Microfoonverbinding mislukt: " + fouttekst, true);
+      }
+    } else if (verbonden) {
+      toonMicrofoonVerbindingsfout();
+      toestand.laatsteVerbindingsfout = null;
+    }
     const omschrijving = status.toestand === "wordt_verbonden" ? "Bezig met verbinden" :
       status.toestand === "wordt_verbroken" ? "Bezig met verbreken" :
       status.toestand === "fout" ? "Audiostoring" :
@@ -3838,6 +3858,26 @@ async function verbindEnigeMicrofoonBijStart() {
   finally { toestand.automatischeVerbindingBezig = false; }
 }
 
+// HTTP 202 betekent alleen dat Windows de opdracht heeft ontvangen.
+// Wacht op de ECHTE audiostreamstatus en meld pas dan "Verbonden".
+// Ook als de 1,5 seconde statuspoller nog niet draait bij automatisch verbinden.
+async function wachtOpBevestigdeMicrofoonverbinding(maximaalMilliseconden = 20000) {
+  const uitersteTijd = Date.now() + maximaalMilliseconden;
+  while (Date.now() < uitersteTijd) {
+    const status = await vraagAanPython("GET", "/api/status");
+    toestand.status = status;
+    if (status.toestand === "verbonden") return status;
+    if (status.toestand === "fout") {
+      throw new Error(status.fout || "Windows heeft de microfoonverbinding geweigerd. Controleer de microfoon en VB-CABLE.");
+    }
+    if (status.toestand === "wordt_verbroken") {
+      throw new Error("De vorige audioverbinding wordt nog afgesloten. Probeer opnieuw zodra deze klaar is.");
+    }
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  throw new Error("De audiostream werd niet binnen twintig seconden bevestigd. Controleer de Windows-audioapparaten en het logboek.");
+}
+
 // Wisselt op basis van actuele serverstatus. De audiodriver draait in Python;
 // dit regelt uitsluitend één gebruikersactie, met bescherming tegen dubbelklikken.
 async function schakelMicrofoonverbinding() {
@@ -3864,10 +3904,17 @@ async function schakelMicrofoonverbinding() {
       }
       const nummer = element("microfoonkeuze").value;
       if (!nummer) throw new Error("Kies eerst een microfoon.");
+      toonMicrofoonVerbindingsfout();
+      toestand.laatsteVerbindingsfout = null;
       await vraagAanPython("POST", "/api/verbinden", { microfoonnummer: Number(nummer) });
       if (!automatisch) markeerHandmatigVerbroken(false);
-      toonMelding(automatisch ? "Enige microfoon automatisch verbonden." : "De microfoon wordt verbonden.");
+      const bevestigd = await wachtOpBevestigdeMicrofoonverbinding();
+      werkVerbindingsknopBij(bevestigd);
+      toonMelding(automatisch ? "Enige microfoon automatisch verbonden." : "Microfoon is verbonden.");
     } // Tijdens verbinden of verbreken wordt een tweede aanvraag genegeerd.
+  } catch (fout) {
+    toonMicrofoonVerbindingsfout(fout.message);
+    throw fout;
   } finally {
     toestand.verbindingInBehandeling = false;
     werkVerbindingsknopBij(toestand.status);

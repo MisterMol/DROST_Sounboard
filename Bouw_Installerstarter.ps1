@@ -12,7 +12,8 @@ if (Test-Path $target) { Remove-Item $target -Force }
 $bronnen = @(
     (Join-Path $root 'hulpmiddelen\installerstarter\DrostInstallerStarter.cs'),
     (Join-Path $root 'hulpmiddelen\installerstarter\StartersoundpackAutomatisch.cs'),
-    (Join-Path $root 'hulpmiddelen\installerstarter\GebundeldeSetup.cs')
+    (Join-Path $root 'hulpmiddelen\installerstarter\GebundeldeSetup.cs'),
+    (Join-Path $root 'hulpmiddelen\installerstarter\HerstelVanBestaandeInstallatie.cs')
 )
 $assemblies = @('System','System.Core','System.Drawing','System.Windows.Forms','System.Net.Http','System.Web.Extensions')
 if ($RC6Bundel) {
