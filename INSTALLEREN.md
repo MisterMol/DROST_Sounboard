@@ -2,6 +2,35 @@
 
 ## Voor gebruikers: één EXE
 
+### DrostSoundboard herstellen zonder handmatig verwijderen
+
+Open gewoon dezelfde nieuwe `DrostSoundboard-Installeren-RC6-Test.exe`
+op de Windows-computer waarop DrostSoundboard al staat.
+
+De installer controleert of een bestaande of gedeeltelijk beschadigde
+Velopack-installatie aanwezig is. Dan verschijnt de knop **Herstellen**
+in plaats van **Installeren**. Kies eventueel het startersoundpack en
+klik op **Herstellen**.
+
+De installer probeert de bestaande DrostSoundboard-audiostream en het
+systeemvakprogramma via de beveiligde lokale afsluitfunctie netjes te
+stoppen. Daarna wordt de bijgeleverde Windows Setup opnieuw uitgevoerd,
+**ook bij hetzelfde versienummer**. Dit herstelt programmabestanden en
+snelkoppelingen. Je hoeft de oude app niet zelf via Windows Apps te
+verwijderen.
+
+**Bibliotheek, favorieten, instellingen en persoonlijke geluiden worden
+niet gewist.** Die staan buiten de Velopack-installatiemap in
+`%LOCALAPPDATA%\DrostSoundboard`. De installer verwijdert deze map
+niet. Het startersoundpack is optioneel, ook bij herstellen.
+
+Als DrostSoundboard niet veilig kan worden afgesloten, breekt de
+installer het herstel af met een bericht. Sluit de app dan via het
+systeemvak en klik nogmaals op Herstellen. Er wordt niet zomaar een
+draaiende audiostream geforceerd afgebroken. Een volledige reset waarbij
+ook je persoonlijke bibliotheek wordt gewist is **geen** herstel en
+gebeurt niet automatisch.
+
 ### Zichtbare RC6-installatie testen
 
 De technische `DrostSoundboard.Desktop-beta-Setup.exe` is een vrijwel stille
