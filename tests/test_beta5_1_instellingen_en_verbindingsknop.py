@@ -91,7 +91,7 @@ class TestBeta51InstellingenEnVerbinding(unittest.TestCase):
         self.assertEqual(self.dom.elementen["microfoon-verbinding-fout"][1].get("role"), "alert")
         self.assertIn("dashboard", self.dom.voorouders("microfoon-verbinding-fout"))
         self.assertIn(".microfoon-verbinding-fout[hidden]", self.css)
-        self.assertIn("toonMicrofoonVerbindingsfout(status.fout", self.js)
+        self.assertIn("toonMicrofoonVerbindingsfout(fouttekst)", self.js)
         self.assertIn("await wachtOpBevestigdeMicrofoonverbinding()", self.js)
         self.assertIn('if (status.toestand === "verbonden") return status;', self.js)
         self.assertIn('if (status.toestand === "fout")', self.js)
