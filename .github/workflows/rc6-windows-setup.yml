@@ -1,4 +1,4 @@
-name: RC6 installatie-EXE met geluidskeuze bouwen
+name: Classic Windows-installer met oude Beta 4.10-microfoonroute bouwen
 on:
   workflow_dispatch:
   pull_request:
@@ -37,7 +37,7 @@ jobs:
       - name: Oorspronkelijke normale DSP-motor uit officiële RC5 Setup controleren
         shell: powershell
         run: .\hulpmiddelen\rc6_automatische_bouw\Haal_Audiomotor_Uit_RC5.ps1
-      - name: RC6 Compact volledig testen, verpakken en automatische EXE-test uitvoeren
+      - name: Classic met oorspronkelijke microfoonroute testen en verpakken
         shell: powershell
         run: .\Bouw_Windows_Release.ps1 -Compact -GitHubRepository "https://github.com/MisterMol/DROST_Sounboard"
       - name: Controleer de interne RC6 Setup voordat deze wordt gebundeld
@@ -74,10 +74,10 @@ jobs:
           $setup=Join-Path $mappen[0].FullName 'DrostSoundboard.Desktop-beta-Setup.exe'
           python .\hulpmiddelen\installerstarter\Controleer_RC6_Bundel.py 'dist-installerstarter/DrostSoundboard-Installeren-RC6-Test.exe' "$setup"
           if ($LASTEXITCODE -ne 0) { throw 'Installatiebestand is beschadigd.' }
-      - name: Alleen de zichtbare RC6-installatie-EXE aanbieden
+      - name: Alleen de zichtbare Classic-installatie-EXE aanbieden
         uses: actions/upload-artifact@v4
         with:
-          name: DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze
+          name: DrostSoundboard-CLASSIC-Zonder-AI-Stemmen
           path: dist-installerstarter/DrostSoundboard-Installeren-RC6-Test.exe
           compression-level: 0
           if-no-files-found: error
