@@ -136,6 +136,28 @@ class DriverMetWasapiConversie(OngeldigeDuplexCombinatie):
         return super().OutputStream(**kwargs)
 
 
+class FoutBijStartenVanKabel(OngeldigeDuplexCombinatie):
+    """PortAudio maakt outputstream wel, maar Windows weigert pas bij start."""
+
+    def OutputStream(self, **kwargs):
+        self.output = super().OutputStream(**kwargs)
+        def weiger_start():
+            raise ValueError('Error starting OutputStream: Invalid device [PaErrorCode -9996]')
+        self.output.start = weiger_start
+        return self.output
+
+
+class FoutBijStartenVanMicrofoon(OngeldigeDuplexCombinatie):
+    """PortAudio maakt inputstream wel, maar Windows weigert pas bij start."""
+
+    def InputStream(self, **kwargs):
+        self.input = super().InputStream(**kwargs)
+        def weiger_start():
+            raise ValueError('Error starting InputStream: Invalid device [PaErrorCode -9996]')
+        self.input.start = weiger_start
+        return self.input
+
+
 class AndereDuplexFout(FormaatDriver):
     """Een onbekende driverfout mag nooit extra audiostreams openen."""
 
@@ -443,6 +465,32 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             self.assertEqual(driver.output.rate, 48000)
             time.sleep(.06)
             self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_virtuele_uitvoer_die_bij_start_weigert_toont_live_027(self):
+        driver = FoutBijStartenVanKabel(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-027', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertFalse(driver.input.active)
+            self.assertFalse(driver.output.active)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_microfoon_die_bij_start_weigert_toont_live_026(self):
+        driver = FoutBijStartenVanMicrofoon(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-026', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertFalse(driver.input.active)
+            self.assertFalse(driver.output.active)
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
