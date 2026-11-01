@@ -54,6 +54,7 @@ MELDINGEN = {
     'LIVE-015': 'De microfoonverbinding is onverwacht gestopt. Controleer de USB- of headsetverbinding en probeer opnieuw.',
     'LIVE-018': 'De microfoonverbinding start, maar Windows levert geen audio aan DrostSoundboard. Controleer microfoonrechten en de gekozen ingang.',
     'LIVE-024': 'Windows kan de microfoon en VB-CABLE niet openen. Sluit andere audioprogramma’s en controleer de Windows-geluidsinstellingen.',
+    'LIVE-025': 'Windows herkent de gekozen microfoon of VB-CABLE niet meer. Vernieuw de apparatenlijst en controleer beide audioapparaten in Windows.',
     'KABEL-002': 'VB-CABLE is niet correct gevonden. Installeer de gewone VB-CABLE-driver en herstart Windows. Controleer daarna de audioapparaten.',
     'LIVE-010': 'Klik eerst op Verbinden.',
     'LIVE-012': 'Klik eerst op Verbinden.',
