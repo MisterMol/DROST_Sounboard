@@ -86,6 +86,17 @@ class TestBeta51InstellingenEnVerbinding(unittest.TestCase):
         self.assertIn("['knop-instellingen', instellingen]", self.js)
         self.assertIn("['knop-dashboard-pagina', !instellingen && !bibliotheek]", self.js)
 
+    def test_verbindingsfout_staat_direct_onder_de_knop(self):
+        self.assertEqual(self.dom.aantallen.get("microfoon-verbinding-fout"), 1)
+        self.assertEqual(self.dom.elementen["microfoon-verbinding-fout"][1].get("role"), "alert")
+        self.assertIn("dashboard", self.dom.voorouders("microfoon-verbinding-fout"))
+        self.assertIn(".microfoon-verbinding-fout[hidden]", self.css)
+        self.assertIn("toonMicrofoonVerbindingsfout(status.fout", self.js)
+        self.assertIn("await wachtOpBevestigdeMicrofoonverbinding()", self.js)
+        self.assertIn('if (status.toestand === "verbonden") return status;', self.js)
+        self.assertIn('if (status.toestand === "fout")', self.js)
+        self.assertNotIn('toonMelding(automatisch ? "Enige microfoon automatisch verbonden." : "De microfoon wordt verbonden.");', self.js)
+
     def test_een_verbindingsactie_controleert_actuele_serverstatus(self):
         self.assertIn('const actueleStatus = await vraagAanPython("GET", "/api/status");', self.js)
         self.assertIn('await vraagAanPython("POST", "/api/verbinden"', self.js)
