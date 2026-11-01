@@ -290,12 +290,18 @@ class GescheidenMicrofoonEnUitvoer:
         self._werkdraad = threading.Thread(target=self._omzetten,
                                            name='Microfoon-sampleomzetting', daemon=True)
         self._werkdraad.start()
-        self._invoer.start()
+        try:
+            self._invoer.start()
+        except Exception as fout:
+            raise AudioApparaatOpenFout('invoer', fout) from fout
         # Een klein voorloopblok verkleint de kans op stilte bij de eerste mix.
         self._stop.wait(timeout=0.035)
         if self._werkfout:
             raise self._werkfout
-        self._uitvoer.start()
+        try:
+            self._uitvoer.start()
+        except Exception as fout:
+            raise AudioApparaatOpenFout('uitvoer', fout) from fout
 
     def stop(self, ignore_errors: bool = False) -> None:
         self._stop.set()
