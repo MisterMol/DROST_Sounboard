@@ -112,6 +112,30 @@ class WeggevallenUitvoerBijFallback(OngeldigeDuplexCombinatie):
         )
 
 
+class WeggevallenInvoerBijFallback(OngeldigeDuplexCombinatie):
+    """De fysieke microfoon weigert alleen bij het werkelijk openen."""
+
+    def InputStream(self, **kwargs):
+        raise ValueError('Error opening InputStream: Invalid device [PaErrorCode -9996]')
+
+
+class DriverMetWasapiConversie(OngeldigeDuplexCombinatie):
+    """WASAPI weigert het originele format, Windows-conversie helpt."""
+
+    def WasapiSettings(self, *, exclusive, auto_convert):
+        return {'exclusive': exclusive, 'auto_convert': auto_convert}
+
+    def InputStream(self, **kwargs):
+        self.input_inst = kwargs
+        return super().InputStream(**kwargs)
+
+    def OutputStream(self, **kwargs):
+        self.output_inst = kwargs
+        if not kwargs.get('extra_settings', {}).get('auto_convert'):
+            raise ValueError('Error opening OutputStream: Invalid device [PaErrorCode -9996]')
+        return super().OutputStream(**kwargs)
+
+
 class AndereDuplexFout(FormaatDriver):
     """Een onbekende driverfout mag nooit extra audiostreams openen."""
 
@@ -385,10 +409,40 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
         try:
             mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
             self._wacht(mixer, 'fout')
-            self.assertIn('LIVE-025', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertIn('LIVE-027', mixer.geef_huidige_status().laatst_bekende_fout)
             self.assertEqual(len(driver.streams), 1)
             self.assertIsNotNone(driver.input)
             self.assertFalse(driver.input.active)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_mislukte_losse_microfoon_toont_eigen_foutcode(self):
+        driver = WeggevallenInvoerBijFallback(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'fout')
+            self.assertIn('LIVE-026', mixer.geef_huidige_status().laatst_bekende_fout)
+            self.assertIsNone(driver.output)
+            self.assertIn('fysieke microfoon',
+                gebruikersmelding(mixer.geef_huidige_status().laatst_bekende_fout))
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
+    def test_wasapi_shared_converter_herstelt_ongeldig_outputformaat(self):
+        driver = DriverMetWasapiConversie(geldig=(48000,), standaard=48000)
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'verbonden')
+            self.assertTrue(driver.input_inst['extra_settings']['auto_convert'])
+            self.assertTrue(driver.output_inst['extra_settings']['auto_convert'])
+            self.assertFalse(driver.output_inst['extra_settings']['exclusive'])
+            self.assertEqual(driver.output.rate, 48000)
+            time.sleep(.06)
+            self.assertTrue(any(np.max(b) > .1 for b in driver.output.received))
         finally:
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
@@ -433,6 +487,14 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
         self.assertIn(
             'VB-CABLE',
             gebruikersmelding('LIVE-025: apparaatcombinatie ongeldig'),
+        )
+        self.assertIn(
+            'fysieke microfoon',
+            gebruikersmelding('LIVE-026: opname-ingang onbereikbaar'),
+        )
+        self.assertIn(
+            'CABLE Input',
+            gebruikersmelding('LIVE-027: virtuele uitvoer onbereikbaar'),
         )
 
     def test_geen_ondersteund_formaat_is_duidelijke_fout(self):
