@@ -37,7 +37,7 @@ class TestInstallerStarterEnImportVoortgang(unittest.TestCase):
     def test_rc6_bouw_biedt_slechts_een_installer_aan(self):
         workflow = (ROOT / ".github/workflows/rc6-windows-setup.yml").read_text(encoding="utf-8")
         self.assertEqual(workflow.count("uses: actions/upload-artifact@v4"), 1)
-        self.assertIn("name: DrostSoundboard-RC6-Een-EXE-Met-Geluidskeuze", workflow)
+        self.assertIn("name: DrostSoundboard-CLASSIC-Zonder-AI-Stemmen", workflow)
         self.assertIn("DrostSoundboard-Installeren-RC6-Test.exe", workflow)
         self.assertNotIn("name: DrostSoundboard-RC6-Compact-Setup", workflow)
         self.assertIn("Controleer de interne RC6 Setup", workflow)
