@@ -1197,6 +1197,22 @@ class LiveAudiomixer:
                 # Verbreken tijdens een herstelpauze is een normale actie.
                 # We mogen dat niet als een werkende audioverbinding melden.
                 return
+            werkelijke_kabel_api = getattr(audiostroom, 'uitvoer_api', 'Windows WASAPI')
+            if werkelijke_kabel_api == 'Windows DirectSound':
+                # Dezelfde VB-CABLE-driver, alleen een andere Windows-API.
+                # Benoem dit zodat de gebruiker niet een 'gewone' WASAPI-
+                # verbinding denkt te hebben en eventuele latentie zichtbaar is.
+                self.softwarelogboek.warning(
+                    'WASAPI weigerde CABLE Input; dezelfde VB-CABLE werkt via DirectSound',
+                    extra={'gebeurtenis': 'vb_cable_directsound_herstel',
+                           'gegevens': {'uitvoer_api': werkelijke_kabel_api,
+                                       'virtuele_uitvoer': kabel.naam}},
+                )
+                schrijf_auditgebeurtenis(
+                    self.auditlogboek, 'vb_cable_directsound_herstel',
+                    {'uitvoer_api': werkelijke_kabel_api,
+                     'virtuele_uitvoer': kabel.naam},
+                )
             # De gevraagde WASAPI-latentie staat voorlopig bewust op "high".
             # Met eerdere Razer-drivers gaf een agressieve instelling problemen.
             # Log de door PortAudio gemelde WERKELIJKE input-/outputlatentie;
