@@ -42,13 +42,21 @@ console.log('OK: direct uitzenden, actie Stop, previewstatus, responsieve bedien
 // Automatische verbinding mag alleen bij één microfoon en een werkende kabel,
 // nooit nadat iemand handmatig heeft verbroken.
 let verzoeken=[];
+let serverStatus={toestand:'verbroken'};
+const bevestigingen=[];
 const selectie=new E(); selectie.value='4';
 const toestand={automatischeVerbindingGeprobeerd:false,automatischEenMicrofoon:'4',microfoonHandmatigGekozen:false,status:{toestand:'verbroken'},
   vbCable:{status:'gereed',bruikbaar:true},verbindingInBehandeling:false};
 const ctx=vm.createContext({toestand,element:id=>id==='microfoonkeuze'?selectie:new E(),
   window:{sessionStorage:{getItem:()=>null,setItem:()=>{},removeItem:()=>{}}},
-  vraagAanPython:async(m,p,args)=>{verzoeken.push([m,p,args]);return p==='/api/status'?{toestand:'verbroken'}:{}},
-  werkVerbindingsknopBij:()=>{},vernieuwStatus:async()=>{},toonMelding:()=>{},stopPreview:()=>{}});
+  vraagAanPython:async(m,p,args)=>{
+    verzoeken.push([m,p,args]);
+    if(m==='POST'&&p==='/api/verbinden') serverStatus={toestand:'verbonden'};
+    return p==='/api/status'?serverStatus:{};
+  },
+  toonMicrofoonVerbindingsfout:()=>{},
+  werkVerbindingsknopBij:()=>{},vernieuwStatus:async()=>{},
+  toonMelding:melding=>bevestigingen.push(melding),stopPreview:()=>{}});
 vm.runInContext(tussen('function magAutomatischVerbinden()', '// Wisselt op basis van actuele serverstatus.')+
   tussen('async function schakelMicrofoonverbinding()', '// 6.1 Beta 2: pictogrammen')+
   'this.start = verbindEnigeMicrofoonBijStart;this.mag = magAutomatischVerbinden;',ctx);
@@ -56,7 +64,9 @@ vm.runInContext(tussen('function magAutomatischVerbinden()', '// Wisselt op basi
   assert.equal(ctx.mag(),true);
   await ctx.start();
   assert.equal(toestand.automatischeVerbindingGeprobeerd,true);
-  assert.deepEqual(verzoeken.map(x=>x[1]),['/api/status','/api/status','/api/verbinden']);
+  assert.deepEqual(verzoeken.map(x=>x[1]),['/api/status','/api/status','/api/verbinden','/api/status']);
+  assert.ok(bevestigingen.includes('Enige microfoon automatisch verbonden.'));
+  assert.ok(!bevestigingen.includes('De microfoon wordt verbonden.'));
   verzoeken=[]; await ctx.start();assert.equal(verzoeken.length,0,'geen tweede automatische start');
   toestand.automatischeVerbindingGeprobeerd=false;toestand.automatischEenMicrofoon=null;
   assert.equal(ctx.mag(),false,'meerdere microfoons zonder unieke selectie');
