@@ -157,22 +157,6 @@ class _BegrensdeAudiobuffer:
             self._slot.release()
 
 
-class AudioApparaatOpenFout(RuntimeError):
-    """Houd bij een mislukte losse stream bij welk endpoint Windows weigerde.
-
-    De oorspronkelijke PortAudioError blijft beschikbaar in de chained
-    traceback. Het dashboard kan hierdoor een gerichte melding geven.
-    """
-
-    def __init__(self, kant: str, oorspronkelijke_fout: Exception) -> None:
-        self.kant = kant
-        super().__init__(
-            f"Losse {'microfoon' if kant == 'invoer' else 'VB-CABLE-uitvoer'} "
-            f"kon niet worden geopend: {type(oorspronkelijke_fout).__name__}: "
-            f"{oorspronkelijke_fout}"
-        )
-
-
 class GescheidenMicrofoonEnUitvoer:
     """Gedraagt zich als een PortAudio-stream voor de bestaande mixer.
 
@@ -196,87 +180,20 @@ class GescheidenMicrofoonEnUitvoer:
         self._invoer = None
         self._uitvoer = None
         self._omzetter_factory = omzetter_factory
-        self._uitvoer_api = 'Windows WASAPI'
-        # Windows WASAPI Shared accepteert niet altijd een ander kanaal- of
-        # sampleformaat dan het ingestelde Windows-mixerformaat. Op de
-        # gescheiden herstelroute mag de Windows-mixer veilig converteren.
-        # De bestaande werkende duplexroute verandert hierdoor niet.
-        wasapi = getattr(audiobibliotheek, 'WasapiSettings', None)
-        extra_settings = (
-            {'extra_settings': wasapi(exclusive=False, auto_convert=True)}
-            if callable(wasapi) else {}
-        )
         try:
-            try:
-                self._invoer = audiobibliotheek.InputStream(
-                    samplerate=formaat.samplefrequentie, blocksize=0,
-                    device=invoernummer, channels=formaat.aantal_kanalen,
-                    dtype='float32', latency='high', callback=self._vang_microfoon_op,
-                    **extra_settings,
-                )
-            except Exception as fout:
-                raise AudioApparaatOpenFout('invoer', fout) from fout
-            try:
-                # Eerst exact de oorspronkelijke RC5-uitvoerinstellingen.
-                # Dit werkte op bestaande pc's vóór de nieuwe herstelcode.
-                self._uitvoer = self._open_uitvoer(uitvoernummer)
-            except Exception as eerste_fout:
-                # Pas als de normale WASAPI-route weigert, probeert de
-                # nieuwe Windows-formaatconverter de oorspronkelijke kabel.
-                laatste_fout = eerste_fout
-                omschrijving = str(eerste_fout).casefold()
-                formaatfout = ('invalid device' in omschrijving and
-                               'paerrorcode -9996' in omschrijving) or (
-                               'invalid sample rate' in omschrijving or
-                               'paerrorcode -9997' in omschrijving)
-                if formaatfout and extra_settings:
-                    try:
-                        self._uitvoer = self._open_uitvoer(
-                            uitvoernummer, extra_settings
-                        )
-                    except Exception as conversiefout:
-                        laatste_fout = conversiefout
-                if self._uitvoer is None:
-                    # Als WASAPI ook na herstel niet opent, mag uitsluitend
-                    # de herkenbare -9996 op dezelfde VB-CABLE via één
-                    # unieke DirectSound-uitgang worden geprobeerd.
-                    if not self._probeer_directsound_kabeluitvoer(eerste_fout):
-                        raise AudioApparaatOpenFout('uitvoer', laatste_fout) from laatste_fout
+            self._invoer = audiobibliotheek.InputStream(
+                samplerate=formaat.samplefrequentie, blocksize=0,
+                device=invoernummer, channels=formaat.aantal_kanalen,
+                dtype='float32', latency='high', callback=self._vang_microfoon_op,
+            )
+            self._uitvoer = audiobibliotheek.OutputStream(
+                samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER, blocksize=0,
+                device=uitvoernummer, channels=2, dtype='float32', latency='high',
+                callback=self._stuur_naar_kabel,
+            )
         except Exception:
             self.close(ignore_errors=True)
             raise
-
-    def _open_uitvoer(self, nummer: int, extra_settings: dict | None = None):
-        """Open 48 kHz stereo naar een vooraf gevalideerd kabelapparaat."""
-        return self._bibliotheek.OutputStream(
-            samplerate=SAMPLEFREQUENTIE_VAN_DE_UITVOER, blocksize=0,
-            device=nummer, channels=2, dtype='float32', latency='high',
-            callback=self._stuur_naar_kabel, **(extra_settings or {}),
-        )
-
-    def _probeer_directsound_kabeluitvoer(self, eerste_fout: Exception) -> bool:
-        """Probeer nooit de systeemuitvoer: uitsluitend de unieke VB-CABLE.
-
-        DirectSound is een gerichte reserve voor de bekende -9996 fout.
-        Andere driverfouten en ontbrekende of meerdere kabels stoppen.
-        """
-        omschrijving = str(eerste_fout).casefold()
-        if not ('paerrorcode -9996' in omschrijving and
-                'invalid device' in omschrijving):
-            return False
-        reservetoestel = zoek_veilige_directsound_kabeluitvoer(self._bibliotheek)
-        if reservetoestel is None:
-            return False
-        try:
-            self._uitvoer = self._open_uitvoer(reservetoestel)
-        except Exception as fout:
-            raise AudioApparaatOpenFout('uitvoer', fout) from fout
-        self._uitvoer_api = 'Windows DirectSound'
-        return True
-
-    @property
-    def uitvoer_api(self) -> str:
-        return self._uitvoer_api
 
     @property
     def active(self) -> bool:
@@ -341,38 +258,12 @@ class GescheidenMicrofoonEnUitvoer:
         self._werkdraad = threading.Thread(target=self._omzetten,
                                            name='Microfoon-sampleomzetting', daemon=True)
         self._werkdraad.start()
-        try:
-            self._invoer.start()
-        except Exception as fout:
-            raise AudioApparaatOpenFout('invoer', fout) from fout
+        self._invoer.start()
         # Een klein voorloopblok verkleint de kans op stilte bij de eerste mix.
         self._stop.wait(timeout=0.035)
         if self._werkfout:
             raise self._werkfout
-        try:
-            self._uitvoer.start()
-        except Exception as fout:
-            if self._uitvoer_api != 'Windows WASAPI':
-                raise AudioApparaatOpenFout('uitvoer', fout) from fout
-            # Ook als pas .start() wordt geweigerd moet de oude stream
-            # eerst volledig worden vrijgegeven.
-            omschrijving = str(fout).casefold()
-            if not ('paerrorcode -9996' in omschrijving and
-                    'invalid device' in omschrijving):
-                raise AudioApparaatOpenFout('uitvoer', fout) from fout
-            reserve = zoek_veilige_directsound_kabeluitvoer(self._bibliotheek)
-            if reserve is None:
-                raise AudioApparaatOpenFout('uitvoer', fout) from fout
-            try:
-                self._uitvoer.close(ignore_errors=False)
-            except Exception as sluitfout:
-                raise AudioApparaatOpenFout('uitvoer', sluitfout) from sluitfout
-            try:
-                self._uitvoer = self._open_uitvoer(reserve)
-                self._uitvoer_api = 'Windows DirectSound'
-                self._uitvoer.start()
-            except Exception as reservefout:
-                raise AudioApparaatOpenFout('uitvoer', reservefout) from reservefout
+        self._uitvoer.start()
 
     def stop(self, ignore_errors: bool = False) -> None:
         self._stop.set()
@@ -409,55 +300,19 @@ class GescheidenMicrofoonEnUitvoer:
             raise eerste_fout
 
 
-def zoek_veilige_directsound_kabeluitvoer(audiobibliotheek: Any) -> int | None:
-    """Zoek één echte VB-CABLE-uitgang bij Windows DirectSound.
-
-    Alleen bedoeld als WASAPI CABLE Input zelf niet opent. Er wordt nooit
-    teruggevallen op de systeemstandaard, een headset of een andere kabel.
-    DirectSound kan apparaatnamen afkorten; het stabiele begin blijft herkenbaar.
-    """
-    try:
-        apparaten = audiobibliotheek.query_devices()
-        hostapis = audiobibliotheek.query_hostapis()
-    except (AttributeError, TypeError, ValueError, OSError):
-        return None
-    kandidaten: list[int] = []
-    for nummer, apparaat in enumerate(apparaten):
-        try:
-            naam = apparaat['name'].strip().casefold()
-            hostnummer = apparaat['hostapi']
-            if (naam.startswith('cable input (vb-audio virtual')
-                    and apparaat['max_output_channels'] >= 2
-                    and isinstance(hostnummer, int)
-                    and 0 <= hostnummer < len(hostapis)
-                    and hostapis[hostnummer]['name'].casefold() == 'windows directsound'):
-                kandidaten.append(nummer)
-        except (TypeError, ValueError, AttributeError, KeyError, IndexError):
-            continue
-    # Meerdere mogelijke VB-CABLE-uitgangen zijn ambigu. Nooit gokken.
-    return kandidaten[0] if len(kandidaten) == 1 else None
-
-
 class _AdapterVoorGescheidenStreams:
     """Geef de bestaande begrensde Windows-startretry dezelfde Stream-API."""
 
-    def __init__(self, audiobibliotheek: Any, formaat: MicrofoonFormaat,
-                 uitvoer_overschrijven: int | None = None) -> None:
+    def __init__(self, audiobibliotheek: Any, formaat: MicrofoonFormaat) -> None:
         self.audiobibliotheek = audiobibliotheek
         self.formaat = formaat
-        self.uitvoer_overschrijven = uitvoer_overschrijven
 
     def Stream(self, **kwargs):
         return GescheidenMicrofoonEnUitvoer(
-            self.audiobibliotheek, kwargs['device'][0],
-            (self.uitvoer_overschrijven if self.uitvoer_overschrijven is not None
-             else kwargs['device'][1]),
+            self.audiobibliotheek, kwargs['device'][0], kwargs['device'][1],
             self.formaat, kwargs['callback'],
         )
 
 
-def maak_streamadapter(audiobibliotheek: Any, formaat: MicrofoonFormaat,
-                       *, uitvoer_overschrijven: int | None = None):
-    return _AdapterVoorGescheidenStreams(
-        audiobibliotheek, formaat, uitvoer_overschrijven
-    )
+def maak_streamadapter(audiobibliotheek: Any, formaat: MicrofoonFormaat):
+    return _AdapterVoorGescheidenStreams(audiobibliotheek, formaat)
