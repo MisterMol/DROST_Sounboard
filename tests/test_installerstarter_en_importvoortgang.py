@@ -42,6 +42,24 @@ class TestInstallerStarterEnImportVoortgang(unittest.TestCase):
         self.assertNotIn("name: DrostSoundboard-RC6-Compact-Setup", workflow)
         self.assertIn("Controleer de interne RC6 Setup", workflow)
 
+    def test_repareren_van_dezelfde_versie_gebeurt_zonder_bibliotheekverlies(self):
+        starter = (ROOT / "hulpmiddelen/installerstarter/DrostInstallerStarter.cs").read_text(encoding="utf-8")
+        herstel = (ROOT / "hulpmiddelen/installerstarter/HerstelVanBestaandeInstallatie.cs").read_text(encoding="utf-8")
+        build = (ROOT / "Bouw_Installerstarter.ps1").read_text(encoding="utf-8")
+        self.assertIn('start.Text = bestaandeApp ? "Herstellen" : "Installeren"', starter)
+        self.assertIn("HerstelVanBestaandeInstallatie.BereidHerstelVoor(", starter)
+        self.assertIn('ProcessStartInfo(exe, "--silent")', starter)
+        self.assertIn('favorieten en instellingen blijven bewaard', starter)
+        self.assertIn("HerstelVanBestaandeInstallatie.cs", build)
+        self.assertIn('"/api/app/afsluiten"', herstel)
+        self.assertIn('"{\\\"bevestiging\\\":\\\"AFSLUITEN\\\"}"', herstel)
+        self.assertIn('UseProxy = false', herstel)
+        self.assertIn('proces.WaitForExit(20000)', herstel)
+        self.assertIn('DrostSoundboard.Desktop', herstel)
+        self.assertNotIn('Directory.Delete(', herstel)
+        self.assertNotIn('File.Delete(', herstel)
+        self.assertNotIn('Stop-Process', herstel)
+
     def test_bibliotheek_import_heeft_blijvende_visuele_voortgang(self):
         html = (ROOT / "app/webinterface/statisch/dashboard.html").read_text(encoding="utf-8")
         js = (ROOT / "app/webinterface/statisch/dashboard.js").read_text(encoding="utf-8")
