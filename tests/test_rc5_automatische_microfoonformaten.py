@@ -130,9 +130,23 @@ class DriverMetWasapiConversie(OngeldigeDuplexCombinatie):
         return super().InputStream(**kwargs)
 
     def OutputStream(self, **kwargs):
+        if not hasattr(self, 'output_pogingen'):
+            self.output_pogingen = []
+        self.output_pogingen.append(kwargs)
         self.output_inst = kwargs
         if not kwargs.get('extra_settings', {}).get('auto_convert'):
             raise ValueError('Error opening OutputStream: Invalid device [PaErrorCode -9996]')
+        return super().OutputStream(**kwargs)
+
+
+class DriverMetWerkendeOudeWasapi(OngeldigeDuplexCombinatie):
+    """WASAPI output werkte al: geen extra driverflags introduceren."""
+
+    def WasapiSettings(self, *, exclusive, auto_convert):
+        return {'exclusive': exclusive, 'auto_convert': auto_convert}
+
+    def OutputStream(self, **kwargs):
+        self.output_inst = kwargs
         return super().OutputStream(**kwargs)
 
 
@@ -505,6 +519,21 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             mixer.verbreek_de_verbinding()
             mixer.wacht_tot_verbinding_echt_weg_is()
 
+    def test_oude_werkende_wasapi_output_behoudt_standaardinstellingen(self):
+        driver = DriverMetWerkendeOudeWasapi(
+            geldig=(48000,), standaard=48000
+        )
+        mixer = LiveAudiomixer(driver, self.logger, self.audit)
+        try:
+            mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
+            self._wacht(mixer, 'verbonden')
+            self.assertNotIn('extra_settings', driver.output_inst)
+            self.assertEqual(driver.output_inst['device'], 21)
+            self.assertEqual(driver.output.rate, 48000)
+        finally:
+            mixer.verbreek_de_verbinding()
+            mixer.wacht_tot_verbinding_echt_weg_is()
+
     def test_wasapi_shared_converter_herstelt_ongeldig_outputformaat(self):
         driver = DriverMetWasapiConversie(geldig=(48000,), standaard=48000)
         mixer = LiveAudiomixer(driver, self.logger, self.audit)
@@ -512,6 +541,8 @@ class TestEchteMixerMetNepdriver(unittest.TestCase):
             mixer.verbind_de_microfoon_met_vb_cable(self.microfoon, self.kabel)
             self._wacht(mixer, 'verbonden')
             self.assertTrue(driver.input_inst['extra_settings']['auto_convert'])
+            self.assertEqual(len(driver.output_pogingen), 2)
+            self.assertNotIn('extra_settings', driver.output_pogingen[0])
             self.assertTrue(driver.output_inst['extra_settings']['auto_convert'])
             self.assertFalse(driver.output_inst['extra_settings']['exclusive'])
             self.assertEqual(driver.output.rate, 48000)
