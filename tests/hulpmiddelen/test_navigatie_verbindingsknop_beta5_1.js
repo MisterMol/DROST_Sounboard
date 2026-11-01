@@ -51,23 +51,31 @@ async function main() {
   let previewsGestopt = 0;
   let statusverversingen = 0;
   let vertraagdeAanvraag = null;
+  let foutNaGeaccepteerdeVerbinding = false;
+  const meldingen = [];
   const context = {
     element, toestand, window, document, Number,
     vraagAanPython: async (methode, route, gegevens) => {
       aanvragen.push({ methode, route, gegevens });
       if (methode === "GET" && route === "/api/status") return serverStatus;
-      if (vertraagdeAanvraag && route === "/api/verbinden") return vertraagdeAanvraag;
+      if (methode === "POST" && route === "/api/verbinden") {
+        if (vertraagdeAanvraag) return vertraagdeAanvraag;
+        serverStatus = foutNaGeaccepteerdeVerbinding
+          ? { toestand: "fout", fout: "Windows kan Razer en VB-CABLE niet openen." }
+          : { toestand: "verbonden" };
+      }
+      if (methode === "POST" && route === "/api/verbreken") serverStatus = { toestand: "verbroken" };
       return {};
     },
     stopPreview: () => { previewsGestopt++; },
-    toonMelding: () => {},
+    toonMelding: (melding) => meldingen.push(melding),
     markeerHandmatigVerbroken: () => {},
     // Dit is geen menutest. De echte router sluit dat menu bij navigatie.
     sluitFavorietActiemenu: () => {},
     vernieuwStatus: async () => { statusverversingen++; }
   };
   vm.createContext(context);
-  for (const naam of ["toonGekozenPagina", "koppelPaginanavigatie", "werkVerbindingsknopBij", "schakelMicrofoonverbinding"]) {
+  for (const naam of ["toonGekozenPagina", "koppelPaginanavigatie", "toonMicrofoonVerbindingsfout", "werkVerbindingsknopBij", "wachtOpBevestigdeMicrofoonverbinding", "schakelMicrofoonverbinding"]) {
     vm.runInContext(haalFunctieUitBron(naam), context);
   }
   // De DOM heeft in productie vaste labels; de nep-DOM krijgt dezelfde startlabels.
@@ -117,8 +125,11 @@ async function main() {
   // Verbinden haalt eerst de actuele status op en verstuurt één verzoek.
   serverStatus = { toestand: "verbroken" };
   await context.schakelMicrofoonverbinding();
-  assert.deepEqual(aanvragen.map(a => `${a.methode} ${a.route}`), ["GET /api/status", "POST /api/verbinden"]);
+  assert.deepEqual(aanvragen.map(a => `${a.methode} ${a.route}`),
+    ["GET /api/status", "POST /api/verbinden", "GET /api/status"]);
   assert.equal(aanvragen[1].gegevens.microfoonnummer, 24);
+  assert.ok(meldingen.includes("Microfoon is verbonden."));
+  assert.ok(!meldingen.includes("De microfoon wordt verbonden."));
   assert.equal(toestand.verbindingInBehandeling, false);
   aanvragen = [];
 
@@ -144,6 +155,7 @@ async function main() {
   await context.schakelMicrofoonverbinding();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(aanvragen.filter(a => a.route === "/api/verbinden").length, 1);
+  serverStatus = { toestand: "verbonden" };
   los({});
   await eerste;
   assert.equal(toestand.verbindingInBehandeling, false);
@@ -155,7 +167,26 @@ async function main() {
   await context.schakelMicrofoonverbinding();
   assert.equal(aanvragen.filter(a => a.methode === "POST").length, 0);
   toestand.vbCable = null;
-  assert.ok(statusverversingen >= 5);
-  console.log("OK: pagina navigatie, één verbindingsknop, actuele serverstatus, dubbelklikbescherming en VB-CABLE.");
+
+  // Een HTTP 202 betekent nog geen geluid. De fout moet direct onder
+  // de verbindingsknop zichtbaar blijven en mag niet als succes tellen.
+  serverStatus = { toestand: "verbroken" };
+  foutNaGeaccepteerdeVerbinding = true;
+  await assert.rejects(context.schakelMicrofoonverbinding(), /Razer en VB-CABLE/);
+  const foutVak = element("microfoon-verbinding-fout");
+  assert.equal(foutVak.hidden, false);
+  assert.match(foutVak.textContent, /Windows kan Razer en VB-CABLE niet openen/);
+  assert.equal(element("verbindingsknop-tekst").textContent, "Verbinden");
+  assert.equal(toestand.verbindingInBehandeling, false);
+  assert.ok(!meldingen.includes("Enige microfoon automatisch verbonden."));
+
+  // Pas na een echte nieuwe succesvolle verbinding verdwijnt de fout.
+  foutNaGeaccepteerdeVerbinding = false;
+  serverStatus = { toestand: "verbroken" };
+  await context.schakelMicrofoonverbinding();
+  assert.equal(element("microfoon-verbinding-fout").hidden, true);
+
+  assert.ok(statusverversingen >= 7);
+  console.log("OK: pagina navigatie, echte verbindingsbevestiging, blijvende foutmelding, dubbelklikbescherming en VB-CABLE.");
 }
 main().catch((fout) => { console.error(fout); process.exitCode = 1; });
