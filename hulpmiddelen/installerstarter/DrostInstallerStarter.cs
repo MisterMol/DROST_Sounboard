@@ -52,7 +52,10 @@ internal sealed class Installer : Form {
             ForeColor = Color.FromArgb(120, 214, 197)
         };
         hint.SetBounds(24, 73, 685, 52);
-        hint.Text = ingesloten != null
+        bool bestaandeApp = HerstelVanBestaandeInstallatie.IsGeinstalleerd();
+        hint.Text = bestaandeApp
+            ? "DrostSoundboard staat al op deze computer. Herstellen installeert de app opnieuw.\nJe bibliotheek, favorieten en instellingen blijven behouden."
+            : ingesloten != null
             ? "RC6 Compact is inbegrepen in dit bestand (ongeveer 73 MiB).\nJe hebt geen Python, Git, .NET SDK of andere ontwikkelsoftware nodig."
             : "DrostSoundboard wordt automatisch gedownload en geïnstalleerd.\nJe bestaande bibliotheek, favorieten en instellingen blijven bewaard.";
 
@@ -67,26 +70,30 @@ internal sealed class Installer : Form {
         uitleg.ForeColor = Color.FromArgb(193, 210, 217);
 
         status.SetBounds(24, 235, 685, 48);
-        status.Text = "Klaar om te installeren. Kies hierboven of je startergeluiden wilt.";
+        status.Text = bestaandeApp
+            ? "Klaar om DrostSoundboard te herstellen. Persoonlijke geluiden blijven staan."
+            : "Klaar om te installeren. Kies hierboven of je startergeluiden wilt.";
         status.ForeColor = Color.FromArgb(241, 248, 249);
         balk.SetBounds(24, 288, 685, 20);
         balk.Style = ProgressBarStyle.Continuous;
         balk.Value = 0;
 
-        start.SetBounds(24, 327, 140, 38);
-        start.Text = "Installeren";
-        stop.SetBounds(175, 327, 106, 38);
+        start.SetBounds(24, 327, 174, 38);
+        start.Text = bestaandeApp ? "Herstellen" : "Installeren";
+        stop.SetBounds(208, 327, 100, 38);
         stop.Text = "Annuleren";
         stop.Enabled = false;
-        map.SetBounds(291, 327, 188, 38);
+        map.SetBounds(318, 327, 177, 38);
         map.Text = "Geluidsarchief tonen";
         map.Enabled = false;
-        openen.SetBounds(490, 327, 219, 38);
+        openen.SetBounds(505, 327, 204, 38);
         openen.Text = "DrostSoundboard openen";
         openen.Enabled = false;
 
         onder.SetBounds(24, 377, 685, 34);
-        onder.Text = "Soundpack later toevoegen? Open Bibliotheek > Audiopack importeren.";
+        onder.Text = bestaandeApp
+            ? "Herstellen vervangt programmabestanden, niet je bibliotheek. Extra geluiden zijn optioneel."
+            : "Soundpack later toevoegen? Open Bibliotheek > Audiopack importeren.";
         onder.ForeColor = Color.FromArgb(193, 210, 217);
 
         Controls.AddRange(new Control[] { kop, hint, pack, uitleg, status, balk,
@@ -242,6 +249,7 @@ internal sealed class Installer : Form {
         packPad = null;
         basisGeinstalleerd = false;
         bool geluiden = pack.Checked;
+        bool herstel = HerstelVanBestaandeInstallatie.IsGeinstalleerd();
         annulering = new CancellationTokenSource();
         try {
             if (!Environment.Is64BitOperatingSystem)
@@ -271,10 +279,21 @@ internal sealed class Installer : Form {
             annulering.Dispose(); annulering = null;
             stop.Enabled = false;
             setupBezig = true;
-            Meld("Stap 2 van 3: DrostSoundboard installeren...", -1);
-            hint.Text = "Windows installeert DrostSoundboard nu op je pc.\nDit venster laat zien wanneer dat klaar is. Je hoeft niets anders te doen.";
+            if (herstel) {
+                Meld("Stap 2 van 3: bestaande app netjes afsluiten...", -1);
+                await HerstelVanBestaandeInstallatie.BereidHerstelVoor(
+                    (tekst, pct) => Meld(tekst, pct));
+            }
+            Meld(herstel ? "Stap 2 van 3: programmabestanden herstellen..."
+                        : "Stap 2 van 3: DrostSoundboard installeren...", -1);
+            hint.Text = herstel
+                ? "De programmabestanden worden opnieuw geïnstalleerd.\nJe bibliotheek, favorieten en instellingen blijven bewaard."
+                : "Windows installeert DrostSoundboard nu op je pc.\nDit venster laat zien wanneer dat klaar is. Je hoeft niets anders te doen.";
 
-            using (var proces = Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true })) {
+            // De zichtbare wizard geeft alle voortgang. Velopack herinstalleert
+            // ook dezelfde versie in silent mode, zonder de app tussentijds
+            // ongevraagd op te starten.
+            using (var proces = Process.Start(new ProcessStartInfo(exe, "--silent") { UseShellExecute = true })) {
                 if (proces == null)
                     throw new InvalidOperationException("Windows kon de Setup niet starten.");
                 await Task.Run(() => proces.WaitForExit());
@@ -339,7 +358,7 @@ internal sealed class Installer : Form {
                 hint.Text = "Installatie voltooid. Klik op 'DrostSoundboard openen'.\n" +
                             "Je kunt later geluiden toevoegen via Bibliotheek > Audiopack importeren.";
             }
-            start.Text = "Opnieuw installeren";
+            start.Text = "Herstellen";
         } catch (OperationCanceledException) {
             Meld(basisGeinstalleerd ? "DrostSoundboard is klaar. Het geluidenpakket is geannuleerd."
                                    : "Download is geannuleerd; de installatie is niet voltooid.", 0);
