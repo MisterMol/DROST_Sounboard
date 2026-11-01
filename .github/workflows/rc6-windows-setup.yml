@@ -53,6 +53,13 @@ jobs:
           Write-Host ('RC6 Setup grootte: ' + [math]::Round($exe.Length/1MB,1) + ' MiB')
           Write-Host ('SHA256: '+$sha)
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ('De interne RC6 Setup is gecontroleerd ('+[math]::Round($exe.Length/1MB,1)+' MiB, SHA256 '+$sha+'). De enige gebruikersdownload is de EXE met geluidskeuze hieronder. Test op een echte Windows-pc.')
+      - name: Installeer RC6 tweemaal en test herstel zonder gegevensverlies
+        shell: powershell
+        run: |
+          $mappen=@(Get-ChildItem 'release-velopack' -Directory -Filter 'Bouw-6.1.0-rc.6-*')
+          if ($mappen.Count -ne 1) { throw 'Onverwacht aantal RC6 bouwmappen.' }
+          $setup=Join-Path $mappen[0].FullName 'DrostSoundboard.Desktop-beta-Setup.exe'
+          .\hulpmiddelen\installerstarter\Test_Herstelinstallatie.ps1 -Setup $setup
       - name: Bouw zichtbaar RC6 installatievenster met soundpackkeuze
         shell: powershell
         run: .\Bouw_Installerstarter.ps1 -RC6Bundel
